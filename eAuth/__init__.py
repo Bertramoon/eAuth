@@ -1,18 +1,26 @@
+import logging.config
+
 from apiflask import APIFlask, abort
 import click
 from flask import request, g
+import yaml
 
 from .auth.api import auth_api
 from .config.api import config_api
-from .extensions import db, migrate, cors, cache
+from .extensions import db, migrate, cors, cache, scheduler
 from .settings import config
 from .auth.models import User, Api, Role
 from .utils.auth import verify_token
+from .schedule.auth import cache_auth
+from .constant import CACHE_TIME_AUTH
 
 
 def create_app(config_name="base"):
     app = APIFlask("eAuth")
     app.config.from_object(config[config_name])
+
+    with open(app.config.get("LOG_CONFIG_FILE", "log_config.yaml"), "r") as f:
+        logging.config.dictConfig(yaml.safe_load(f.read()))
 
     register_extensions(app)
     register_blueprints(app)
@@ -27,6 +35,10 @@ def register_extensions(app):
     cors.init_app(app)
     migrate.init_app(app)
     cache.init_app(app)
+    scheduler.init_app(app)
+    scheduler.start()
+    scheduler.add_job("cache_api", cache_auth, trigger='interval', seconds=CACHE_TIME_AUTH)
+    scheduler.run_job("cache_api")
 
 
 def register_blueprints(app):

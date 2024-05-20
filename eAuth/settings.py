@@ -1,6 +1,5 @@
 import os
 import secrets
-from .base.schemas import BaseOutSchema
 
 BASE_DIR = os.path.abspath(os.path.dirname(__file__))
 
@@ -81,11 +80,18 @@ class BaseConfig(object):
     SQLALCHEMY_ECHO = True
 
     # 缓存设置
+    DEBUG = True
     CACHE_TYPE = "SimpleCache"
     CACHE_DEFAULT_TIMEOUT = 300
 
+    # 开启缓存鉴权
+    CACHE_AUTH_SWITCH = True
+
     TOKEN_EXPIRED = 60 * 60 * 3
     MAX_LOGIN_INCORRECT = 5
+
+    # 日志存放位置
+    LOG_CONFIG_FILE = os.path.join(BASE_DIR, "log_config.yaml")
 
 
 class Production(BaseConfig):
@@ -97,6 +103,9 @@ class Production(BaseConfig):
 
     TOKEN_EXPIRED = 60 * 60 * 2
     MAX_LOGIN_INCORRECT = 3
+
+    # 缓存设置
+    DEBUG = False
 
 
 config = {

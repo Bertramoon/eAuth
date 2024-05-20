@@ -1,3 +1,4 @@
+import logging
 import re
 import time
 from urllib.parse import urlparse
@@ -6,7 +7,10 @@ from authlib.jose import jwt
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from ..extensions import db
+from ..extensions import db, cache
+from ..constant import CACHE_PREFIX_USER_TO_ROLE, CACHE_TIME_USER, CACHE_PREFIX_ROLE_TO_API, CACHE_PREFIX_API
+
+logger = logging.getLogger(__name__)
 
 roles_apis = db.Table(
     'roles_apis',
@@ -95,20 +99,35 @@ class User(db.Model):
         :param method:
         :return:
         """
-        api_set = set()
-        for role in self.roles:
-            for api in role.apis:
-                if (api.method, api.url) in api_set:
-                    continue
-                api_set.add((api.method, api.url))
-                if method.upper() == api.method and url_match(url, api.url):
-                    return True
+        api_set: set[int] = set()
+        if cache.get(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}") is None:
+            logger.info(f"[can] Get cache for user {self.id}->{self.username}")
+            # 无缓存，读数据库并加入缓存
+            role_ids = set(role.id for role in self.roles)
+            cache.set(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}", role_ids, CACHE_TIME_USER)
+        # 获取user对应的role列表
+        role_ids = cache.get(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}")
+        logger.info(f"[can] Get role_ids: `{role_ids}`")
+        # 从role列表中提取api列表
+        for role_id in role_ids:
+            apis = cache.get(f"{CACHE_PREFIX_ROLE_TO_API}_{role_id}")
+            if apis:
+                api_set.update(apis)
+        logger.info(f"[can] Get api_ids: `{api_set}`")
+        # 匹配api，鉴权
+        for api_id in api_set:
+            api = cache.get(f"{CACHE_PREFIX_API}_{api_id}")
+            if not api:
+                continue
+            if method.upper() == api.method and url_match(url, api.url):
+                return True
         return False
 
 
 def url_match(request_url: str, allowed_url: str):
     parsed_url = urlparse(request_url)
     request_url = parsed_url.path
+    logger.debug(f"[url match] request_url: `{request_url}`, allowed_url: {allowed_url}")
 
     # 将{xx}替换为正则
     pattern = re.sub(r'{[^}]*?}', r'[a-zA-Z0-9\\u4e00-\\u9fff\_\-\.~]+', allowed_url)

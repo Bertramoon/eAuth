@@ -1,0 +1,29 @@
+version: 1.0
+disable_existing_loggers: False
+formatters:
+  simple:
+    format: "%(asctime)s:%(filename)s:%(levelname)s:%(message)s"
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: INFO
+    stream: ext://sys.stdout
+  info_log:
+    class: logging.handlers.RotatingFileHandler
+    formatter: simple
+    level: INFO
+    filename: info.log
+    maxBytes: 10485760
+    backupCount: 20
+    encoding: utf8
+  error_log:
+    class: logging.handlers.RotatingFileHandler
+    formatter: simple
+    level: ERROR
+    filename: error.log
+    maxBytes: 10485760
+    backupCount: 20
+    encoding: utf8
+root:
+  level: INFO
+  handlers: [console, info_log, error_log]

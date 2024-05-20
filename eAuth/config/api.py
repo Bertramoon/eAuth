@@ -1,3 +1,5 @@
+import logging
+
 from flask.views import MethodView
 from apiflask import APIBlueprint, abort
 
@@ -8,6 +10,7 @@ from ..extensions import db
 from ..utils.auth import verify_permission
 
 config_api = APIBlueprint("config", __name__, url_prefix="/api/config")
+logger = logging.getLogger(__name__)
 
 
 class ApiView(MethodView):
@@ -32,7 +35,8 @@ class ApiView(MethodView):
         try:
             db.session.add(api)
             db.session.commit()
-        except:
+        except Exception:
+            logger.error("[api] Create failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return api
@@ -49,6 +53,7 @@ class ApiView(MethodView):
         try:
             db.session.commit()
         except:
+            logger.error("[api] Update failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return api
@@ -64,6 +69,7 @@ class ApiView(MethodView):
         try:
             db.session.commit()
         except:
+            logger.error("[api] Delete failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return {"success": result}
@@ -94,6 +100,7 @@ class RoleView(MethodView):
             db.session.add(role)
             db.session.commit()
         except:
+            logger.error("[role] Create failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return role
@@ -110,6 +117,7 @@ class RoleView(MethodView):
         try:
             db.session.commit()
         except:
+            logger.error("[role] Update failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return role
@@ -125,6 +133,7 @@ class RoleView(MethodView):
         try:
             db.session.commit()
         except:
+            logger.error("[role] Delete failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
         return {"success": result}

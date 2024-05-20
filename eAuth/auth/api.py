@@ -1,3 +1,5 @@
+import logging
+
 from apiflask import APIBlueprint, abort
 from flask import current_app, g
 
@@ -5,6 +7,7 @@ from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthO
 from .models import User
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
+logger = logging.getLogger(__name__)
 
 
 @auth_api.post("/login")
@@ -16,10 +19,17 @@ def login(data):
     user = User.query.filter_by(username=username).first()
 
     if user and (user.is_locked or user.login_incorrect >= current_app.config.get("MAX_LOGIN_INCORRECT", 3)):
+        logger.info(f"[login] User's locked: {user.is_locked} and login incorrect: {user.login_incorrect}")
         abort(401, message="Login is limited, please contact your administrator")
 
     if not (user and user.validate_password(password)):
+        if not user:
+            logger.info("[login] Get none user.")
+        else:
+            logger.warning(f"[auth] The password of the user `{user.username}` was failed.")
         abort(401, message="Username or password failed")
+
+    logger.info(f"[login] User `{user.username}` login success")
 
     return {
         "token": user.auth_token
@@ -35,8 +45,11 @@ def login(data):
 def auth(data):
     url, method = data["url"], data["method"]
     user: User = g.user
+    success: bool = True
     if not user.can(url, method):
+        success = False
         abort(403, message="No permission")
+    logger.info(f"[check] User: `{user.username}`, url: `{url}`, method: `{method}`, check result is {success}")
     return {}
 
 

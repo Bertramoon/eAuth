@@ -4,7 +4,6 @@ from ..extensions import scheduler, cache
 from ..constant import CACHE_PREFIX_API, CACHE_TIME_AUTH, CACHE_TIME_AUTH_DELAY, CACHE_PREFIX_ROLE_TO_API
 from ..auth.models import Api, Role
 
-
 logger = logging.getLogger(__name__)
 
 
@@ -20,6 +19,6 @@ def cache_auth():
             logger.debug("[cache] Set api cache success")
         roles = Role.query.all()
         for role in roles:
-            cache.set(f"{CACHE_PREFIX_ROLE_TO_API}_{role.id}", [api.id for api in role.apis])
+            cache.set(f"{CACHE_PREFIX_ROLE_TO_API}_{role.id}", [api.id for api in role.apis],
+                      CACHE_TIME_AUTH + CACHE_TIME_AUTH_DELAY)
             logger.debug("[cache] Set role cache success")
-

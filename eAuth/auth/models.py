@@ -99,16 +99,17 @@ class User(db.Model):
         :param method:
         :return:
         """
-        api_set: set[int] = set()
-        if cache.get(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}") is None:
+        # 获取user对应的role列表
+        role_ids = cache.get(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}")
+        if role_ids is None:
             logger.info(f"[can] Get cache for user {self.id}->{self.username}")
             # 无缓存，读数据库并加入缓存
             role_ids = set(role.id for role in self.roles)
             cache.set(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}", role_ids, CACHE_TIME_USER)
-        # 获取user对应的role列表
-        role_ids = cache.get(f"{CACHE_PREFIX_USER_TO_ROLE}_{self.id}")
         logger.info(f"[can] Get role_ids: `{role_ids}`")
+
         # 从role列表中提取api列表
+        api_set: set[int] = set()
         for role_id in role_ids:
             apis = cache.get(f"{CACHE_PREFIX_ROLE_TO_API}_{role_id}")
             if apis:

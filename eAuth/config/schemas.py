@@ -6,6 +6,7 @@ from apiflask.validators import Length, Regexp, OneOf, ValidationError
 from apiflask.schemas import Schema
 
 from ..auth.models import Role, Api
+from ..base.schemas import BasePageOutSchema
 from ..extensions import db
 
 
@@ -44,9 +45,21 @@ class ApiOutputSchema(ApiSchema):
     roles = List(Nested(RoleSchema))
 
 
+class ApiPageOutputSchema(BasePageOutSchema):
+    data = List(Nested(ApiOutputSchema))
+
+
 class RoleOutputSchema(RoleSchema):
     apis = List(Nested(ApiSchema))
 
 
+class RolePageOutputSchema(BasePageOutSchema):
+    data = List(Nested(RoleOutputSchema))
+
+
 class UserOutputSchema(UserSchema):
     roles = List(Nested(RoleSchema))
+
+
+class UserPageOutputSchema(BasePageOutSchema):
+    data = List(Nested(UserOutputSchema))

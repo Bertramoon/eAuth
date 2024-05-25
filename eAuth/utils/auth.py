@@ -28,7 +28,7 @@ def verify_token(token: str):
             return None
     except JoseError:
         return None
-    except Exception:
+    except:
         logger.info("[verify token] Verify token failed", exc_info=True)
         return None
     else:
@@ -50,6 +50,9 @@ def verify_permission(func):
         user = g.user
         url = request.path
         method = request.method
+        if user.username == "admin":  # admin直接通过
+            logger.info("[verify permission] Admin visitor")
+            return func(*args, **kwargs)
         if not user.can(url, method):
             logger.info("[verify permission] Verify permission failed: no permission")
             abort(403, message="No permission")

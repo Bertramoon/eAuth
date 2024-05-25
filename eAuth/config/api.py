@@ -1,11 +1,13 @@
 import logging
+from typing import Any
 
 from flask.views import MethodView
-from apiflask import APIBlueprint, abort
+from apiflask import APIBlueprint, abort, pagination_builder
 
-from .schemas import ApiSchema, RoleSchema, ApiOutputSchema, RoleOutputSchema, UserOutputSchema
+from .schemas import ApiSchema, RoleSchema, ApiOutputSchema, RoleOutputSchema, UserOutputSchema, ApiPageOutputSchema, \
+    RolePageOutputSchema, UserPageOutputSchema
 from ..auth.models import Api, Role, User
-from ..base.schemas import BaseOutSchema
+from ..base.schemas import BaseOutSchema, PageSchema
 from ..extensions import db
 from ..utils.auth import verify_permission
 
@@ -16,14 +18,13 @@ logger = logging.getLogger(__name__)
 class ApiView(MethodView):
     decorators = [verify_permission]
 
-    @config_api.output(ApiOutputSchema(many=True))
+    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.output(ApiPageOutputSchema)
     @config_api.doc(summary="获取API",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
-    def get(self, api_id: int):
-        if api_id is None:
-            return Api.query.all()
-        return [Api.query.get_or_404(api_id)]
+    def get(self, api_id: int, query: dict):
+        return _get(Api, "id", api_id, query["page"], query["per_page"])
 
     @config_api.input(ApiSchema, location="json", arg_name="data")
     @config_api.output(ApiSchema, status_code=201)
@@ -35,7 +36,7 @@ class ApiView(MethodView):
         try:
             db.session.add(api)
             db.session.commit()
-        except Exception:
+        except:
             logger.error("[api] Create failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
@@ -78,14 +79,13 @@ class ApiView(MethodView):
 class RoleView(MethodView):
     decorators = [verify_permission]
 
-    @config_api.output(RoleOutputSchema(many=True))
+    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.output(RolePageOutputSchema)
     @config_api.doc(summary="获取角色",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
-    def get(self, role_id: int):
-        if role_id is None:
-            return Role.query.all()
-        return [Role.query.get_or_404(role_id)]
+    def get(self, role_id: int, query: dict):
+        return _get(Role, "id", role_id, query["page"], query["per_page"])
 
     @config_api.input(RoleSchema, location="json", arg_name="data")
     @config_api.output(RoleSchema, status_code=201)
@@ -93,9 +93,7 @@ class RoleView(MethodView):
                     responses=[201, 401, 403, 422, 500],
                     security="Authorization")
     def post(self, data: dict):
-        print(data)
         role = Role(**data)
-        print(role)
         try:
             db.session.add(role)
             db.session.commit()
@@ -142,14 +140,13 @@ class RoleView(MethodView):
 class UserView(MethodView):
     decorators = [verify_permission]
 
-    @config_api.output(UserOutputSchema(many=True))
+    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.output(UserPageOutputSchema)
     @config_api.doc(summary="获取用户",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
-    def get(self, username: str):
-        if username is None:
-            return User.query.all()
-        return [User.query.filter_by(username=username).first()]
+    def get(self, username: str, query: dict):
+        return _get(User, "username", username, query["page"], query["per_page"])
 
 
 api_view = ApiView.as_view("api_view")
@@ -165,3 +162,23 @@ config_api.add_url_rule("/role/<int:role_id>", view_func=role_view, methods=["GE
 user_view = UserView.as_view("user_view")
 config_api.add_url_rule("/user", view_func=user_view, defaults={"username": None}, methods=["GET"])
 config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"])
+
+
+def _get(model: db.Model, field_name: str, field_value: Any, page: int, per_page: int):
+    if field_value is None:
+        pagination = model.query.paginate(
+            page=page,
+            per_page=per_page
+        )
+    else:
+        pagination = model.query.filter_by(**{field_name: field_value}).paginate(
+            page=page,
+            per_page=per_page
+        )
+    data = pagination.items
+    if not data:
+        abort(404)
+    return {
+        "data": data,
+        "pagination": pagination_builder(pagination)
+    }

@@ -4,8 +4,7 @@ from typing import Any
 from flask.views import MethodView
 from apiflask import APIBlueprint, abort, pagination_builder
 
-from .schemas import ApiSchema, RoleSchema, ApiOutputSchema, RoleOutputSchema, UserOutputSchema, ApiPageOutputSchema, \
-    RolePageOutputSchema, UserPageOutputSchema
+from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema
 from ..auth.models import Api, Role, User
 from ..base.schemas import BaseOutSchema, PageSchema
 from ..extensions import db

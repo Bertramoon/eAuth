@@ -7,7 +7,7 @@ import yaml
 
 from .auth.api import auth_api
 from .config.api import config_api
-from .extensions import db, migrate, cors, cache, scheduler
+from .extensions import db, migrate, cors, cache, scheduler, limiter
 from .settings import config
 from .auth.models import User, Api, Role
 from .utils.auth import verify_token
@@ -35,6 +35,7 @@ def register_extensions(app):
     cors.init_app(app)
     migrate.init_app(app)
     cache.init_app(app)
+    limiter.init_app(app)
     scheduler.init_app(app)
     scheduler.start()
     scheduler.add_job("cache_api", cache_auth, trigger='interval', seconds=CACHE_TIME_AUTH)

@@ -129,6 +129,7 @@ def register_commands(app):
             Api(url=config_api.url_prefix + "/role", method="POST"),
             Api(url=config_api.url_prefix + "/role/{id}", method="PUT"),
             Api(url=config_api.url_prefix + "/role/{id}", method="DELETE"),
+            Api(url=config_api.url_prefix + "/role/{id}/api", method="PUT"),
         ]
 
         role1 = Role(name="reader")

@@ -4,7 +4,8 @@ from typing import Any
 from flask.views import MethodView
 from apiflask import APIBlueprint, abort, pagination_builder
 
-from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema
+from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema, \
+    ApiIdListSchema, RoleSingleOutputSchema
 from ..auth.models import Api, Role, User
 from ..base.schemas import BaseOutSchema, PageSchema
 from ..extensions import db
@@ -161,6 +162,29 @@ config_api.add_url_rule("/role/<int:role_id>", view_func=role_view, methods=["GE
 user_view = UserView.as_view("user_view")
 config_api.add_url_rule("/user", view_func=user_view, defaults={"username": None}, methods=["GET"])
 config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"])
+
+
+@config_api.put("/role/<int:role_id>/api")
+@config_api.input(ApiIdListSchema, location="json", arg_name="data")
+@config_api.output(RoleSingleOutputSchema, status_code=201)
+@config_api.doc(summary="为角色绑定api",
+                responses=[200, 401, 403, 404, 500],
+                security="Authorization")
+def role_add_api(role_id: int, data: dict):
+    # 查询角色
+    role: Role = Role.query.get_or_404(role_id)
+    # 设置接口列表
+    api_add = Api.query.filter(Api.id.in_(data["ids"])).all()
+    role.apis.extend(api_add)
+    try:
+        db.session.commit()
+    except:
+        logger.error("[role-api] Update failed", exc_info=True)
+        db.session.rollback()
+        abort(500, message="server error")
+    return {
+        "data": role
+    }
 
 
 def _get(model: db.Model, field_name: str, field_value: Any, page: int, per_page: int):

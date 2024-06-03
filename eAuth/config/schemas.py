@@ -1,3 +1,4 @@
+import logging
 from marshmallow.decorators import validates, validates_schema
 from sqlalchemy import and_
 
@@ -6,8 +7,10 @@ from apiflask.validators import Length, Regexp, OneOf, ValidationError
 from apiflask.schemas import Schema
 
 from ..auth.models import Role, Api
-from ..base.schemas import BasePageOutSchema
+from ..base.schemas import BasePageOutSchema, BaseOutSchema
 from ..extensions import db
+
+logger = logging.getLogger(__name__)
 
 
 class ApiSchema(Schema):
@@ -22,7 +25,7 @@ class ApiSchema(Schema):
         url = data.get("url")
         method = data.get("method")
         if db.session.query(db.exists().where(and_(Api.url == url, Api.method == method))).scalar():
-            raise ValidationError(f"Duplicate API: {method} {url}")
+            raise ValidationError(f"Duplicate API: {method} {url}.")
 
 
 class RoleSchema(Schema):
@@ -57,9 +60,29 @@ class RolePageOutputSchema(BasePageOutSchema):
     data = List(Nested(RoleOutputSchema))
 
 
+class RoleSingleOutputSchema(BaseOutSchema):
+    data = Nested(RoleOutputSchema)
+
+
 class UserOutputSchema(UserSchema):
     roles = List(Nested(RoleSchema))
 
 
 class UserPageOutputSchema(BasePageOutSchema):
     data = List(Nested(UserOutputSchema))
+
+
+class ApiIdListSchema(Schema):
+    """
+    角色绑定API的输入模型
+    """
+    ids = List(Integer())
+
+    @validates_schema
+    def exists_validate(self, data, **kwargs):
+        ids: list = data.get("ids")
+        ids_db = set(item[0] for item in (db.session.query(Api.id).all()))
+        for id_ in ids:
+            if id_ not in ids_db:
+                logger.info(f"[validate role-api] The api_id={id_} is not exists.")
+                raise ValidationError(f"The id `{id_}` from db is not exists.")

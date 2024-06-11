@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 roles_apis = db.Table(
     'roles_apis',
-    db.Column('role_id', db.Integer, db.ForeignKey('role.id')),
-    db.Column('api_id', db.Integer, db.ForeignKey('api.id'))
+    db.Column('role_id', db.Integer, db.ForeignKey('role.id', ondelete='CASCADE')),
+    db.Column('api_id', db.Integer, db.ForeignKey('api.id', ondelete='CASCADE'))
 )
 
 users_roles = db.Table(

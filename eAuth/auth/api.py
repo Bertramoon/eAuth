@@ -5,13 +5,16 @@ from flask import current_app, g
 
 from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from .models import User
+from ..base.schemas import BaseOutSchema
 from ..extensions import limiter
+from ..utils.decorator import login_log
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
 logger = logging.getLogger(__name__)
 
 
 @auth_api.post("/login")
+@login_log("登录")
 @auth_api.input(LoginInputSchema, location="json", arg_name="data")
 @auth_api.output(LoginOutputSchema, status_code=200)
 @auth_api.doc(summary="登录接口，返回token信息", responses=[200, 401, 422])
@@ -57,5 +60,6 @@ def auth(data):
 
 
 @auth_api.get("/ping")
+@auth_api.output(BaseOutSchema)
 def ping():
-    return {"success": "ok"}
+    return {"success": True}

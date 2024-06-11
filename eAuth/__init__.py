@@ -1,18 +1,24 @@
+import logging
 import logging.config
 
-from apiflask import APIFlask, abort
 import click
-from flask import request, g
 import yaml
+from apiflask import APIFlask, abort
+from flask import request, g
+from sqlalchemy import inspect
 
 from .auth.api import auth_api
-from .config.api import config_api
-from .extensions import db, migrate, cors, cache, scheduler, limiter
-from .settings import config
 from .auth.models import User, Api, Role
-from .utils.auth import verify_token
-from .schedule.auth import cache_auth
+from .config.api import config_api
+from .log.api import log_api
 from .constant import CACHE_TIME_AUTH
+from .extensions import db, migrate, cors, cache, scheduler, limiter, get_ipaddr
+from .log.models import OperateLog, LoginLog
+from .schedule.auth import cache_auth
+from .settings import config
+from .utils.auth import verify_token
+
+logger = logging.getLogger(__name__)
 
 
 def create_app(config_name="base"):
@@ -37,6 +43,10 @@ def register_extensions(app):
     cache.init_app(app)
     limiter.init_app(app)
     scheduler.init_app(app)
+    with app.app_context():
+        insp = inspect(db.engine)
+        if not insp.has_table(Api.__tablename__, db.engine):
+            db.create_all()
     scheduler.start()
     scheduler.add_job("cache_api", cache_auth, trigger='interval', seconds=CACHE_TIME_AUTH)
     scheduler.run_job("cache_api")
@@ -45,6 +55,7 @@ def register_extensions(app):
 def register_blueprints(app):
     app.register_blueprint(auth_api)
     app.register_blueprint(config_api)
+    app.register_blueprint(log_api)
 
 
 def register_processor(app):
@@ -55,6 +66,8 @@ def register_processor(app):
             User=User,
             Role=Role,
             Api=Api,
+            OperateLog=OperateLog,
+            LoginLog=LoginLog,
         )
 
     @app.error_processor
@@ -67,13 +80,29 @@ def register_processor(app):
 
     @app.before_request
     def jwt_auth():
-        if request.path in ["/api/auth/login", "/docs", "/openapi.json"]:
+        # 认证
+        auth_white_list = app.config.get("AUTH_WHITE_LIST", {"POST /api/auth/login"})
+        if f"{request.method.upper()} {request.path}" in auth_white_list:
             return
         jwt_token = request.headers.get("Authorization")
         user = verify_token(jwt_token)
         if user is None:
             abort(401, message="Token error")
         g.user = user
+
+        # 鉴权
+        permission_white_list = app.config.get("PERMISSION_WHITE_LIST", {"/api/auth/check"})
+        if f"{request.method.upper()} {request.path}" in permission_white_list:
+            return
+        if user.username == "admin":  # admin直接通过
+            logger.info("[verify permission] Admin visitor")
+            return
+        url = request.path
+        method = request.method
+
+        if not user.can(url, method):
+            logger.info("[verify permission] Verify permission failed: no permission")
+            abort(403, message="No permission")
 
 
 def register_commands(app):
@@ -140,6 +169,3 @@ def register_commands(app):
         db.session.add(role1)
         db.session.add(role2)
         db.session.commit()
-
-
-

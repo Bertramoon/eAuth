@@ -7,3 +7,12 @@ CACHE_PREFIX_USER_TO_ROLE = "cache_user_to_role"
 CACHE_TIME_AUTH = 10 * 60
 CACHE_TIME_AUTH_DELAY = 30
 CACHE_TIME_USER = 5 * 60
+
+# 支持的HTTP方法
+HTTP_METHODS = (
+    'GET',
+    'POST',
+    'PUT',
+    'DELETE',
+    'OPTIONS',
+)

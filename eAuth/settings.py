@@ -93,13 +93,20 @@ class BaseConfig(object):
     # 日志存放位置
     LOG_CONFIG_FILE = os.path.join(BASE_DIR, "log_config.yaml")
 
+    # 不认证不鉴权接口
+    AUTH_WHITE_LIST = {"POST /api/auth/login", "GET /docs", "GET /openapi.json"}
+
+    # 不鉴权接口
+    PERMISSION_WHITE_LIST = {"POST /api/auth/check"}
+
 
 class Production(BaseConfig):
     SECRET_KEY = secrets.token_hex(32)
     # 数据库
-    SQLALCHEMY_DATABASE_URI = ('mysql+mysqlconnector://'
+    SQLALCHEMY_DATABASE_URI = ('mysql+pymysql://'
                                + os.getenv("db_username", 'root') + ":" + os.getenv("db_password", 'root')
-                               + "@" + os.getenv("db_url", "127.0.0.1:3306") + "/" + os.getenv("database", 'root'))
+                               + "@" + os.getenv("db_url", "127.0.0.1:3306") + "/" + os.getenv("database", 'eauth')) \
+                              + "?charset=utf8"
 
     TOKEN_EXPIRED = 60 * 60 * 2
     MAX_LOGIN_INCORRECT = 3

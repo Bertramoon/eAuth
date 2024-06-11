@@ -33,28 +33,3 @@ def verify_token(token: str):
         return None
     else:
         return user
-
-
-def verify_permission(func):
-    """
-    鉴权装饰器
-
-    :param func:
-    :return:
-    """
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        if not hasattr(g, "user") or not g.user:
-            logger.info("[verify permission] Verify permission failed: user is none")
-            abort(403, message="No permission")
-        user = g.user
-        url = request.path
-        method = request.method
-        if user.username == "admin":  # admin直接通过
-            logger.info("[verify permission] Admin visitor")
-            return func(*args, **kwargs)
-        if not user.can(url, method):
-            logger.info("[verify permission] Verify permission failed: no permission")
-            abort(403, message="No permission")
-        return func(*args, **kwargs)
-    return wrapper

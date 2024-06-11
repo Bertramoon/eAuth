@@ -1,33 +1,32 @@
 import logging
-from typing import Any
 
 from flask.views import MethodView
 from apiflask import APIBlueprint, abort, pagination_builder
 
 from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema, \
-    ApiIdListSchema, RoleSingleOutputSchema
+    ApiIdListSchema, RoleSingleOutputSchema, ApiSingleOutputSchema
 from ..auth.models import Api, Role, User
 from ..base.schemas import BaseOutSchema, PageSchema
 from ..extensions import db
-from ..utils.auth import verify_permission
+from ..utils.decorator import operate_log
+from ..utils.model import get_page
 
 config_api = APIBlueprint("config", __name__, url_prefix="/api/config")
 logger = logging.getLogger(__name__)
 
 
 class ApiView(MethodView):
-    decorators = [verify_permission]
-
     @config_api.input(PageSchema, location="query", arg_name="query")
     @config_api.output(ApiPageOutputSchema)
     @config_api.doc(summary="获取API",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def get(self, api_id: int, query: dict):
-        return _get(Api, "id", api_id, query["page"], query["per_page"])
+        return get_page(Api.query, {"id": api_id}, query["page"], query["per_page"])
 
+    @operate_log
     @config_api.input(ApiSchema, location="json", arg_name="data")
-    @config_api.output(ApiSchema, status_code=201)
+    @config_api.output(ApiSingleOutputSchema, status_code=201)
     @config_api.doc(summary="创建API",
                     responses=[201, 401, 403, 422, 500],
                     security="Authorization")
@@ -40,10 +39,11 @@ class ApiView(MethodView):
             logger.error("[api] Create failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return api
+        return {"data": api}
 
+    @operate_log
     @config_api.input(ApiSchema, location="json", arg_name="data")
-    @config_api.output(ApiSchema, status_code=201)
+    @config_api.output(ApiSingleOutputSchema, status_code=201)
     @config_api.doc(summary="修改API",
                     responses=[201, 401, 403, 404, 422, 500],
                     security="Authorization")
@@ -57,38 +57,36 @@ class ApiView(MethodView):
             logger.error("[api] Update failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return api
+        return {"data": api}
 
+    @operate_log
     @config_api.output(BaseOutSchema)
-    @config_api.doc(summary="修改API",
+    @config_api.doc(summary="删除API",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def delete(self, api_id: int):
-        if not db.session.query(db.exists().where(Api.id == api_id)).scalar():
-            abort(404, message="Not found")
-        result = Api.query.filter_by(id=api_id).delete()
         try:
+            db.session.delete(Api.query.get_or_404(api_id))
             db.session.commit()
         except:
             logger.error("[api] Delete failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return {"success": result}
+        return {"success": True}
 
 
 class RoleView(MethodView):
-    decorators = [verify_permission]
-
     @config_api.input(PageSchema, location="query", arg_name="query")
     @config_api.output(RolePageOutputSchema)
     @config_api.doc(summary="获取角色",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def get(self, role_id: int, query: dict):
-        return _get(Role, "id", role_id, query["page"], query["per_page"])
+        return get_page(Role.query, {"id": role_id}, query["page"], query["per_page"])
 
+    @operate_log
     @config_api.input(RoleSchema, location="json", arg_name="data")
-    @config_api.output(RoleSchema, status_code=201)
+    @config_api.output(RoleSingleOutputSchema, status_code=201)
     @config_api.doc(summary="创建角色",
                     responses=[201, 401, 403, 422, 500],
                     security="Authorization")
@@ -101,10 +99,11 @@ class RoleView(MethodView):
             logger.error("[role] Create failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return role
+        return {"data": role}
 
+    @operate_log
     @config_api.input(RoleSchema, location="json", arg_name="data")
-    @config_api.output(RoleSchema, status_code=201)
+    @config_api.output(RoleSingleOutputSchema, status_code=201)
     @config_api.doc(summary="修改角色",
                     responses=[201, 401, 403, 404, 422, 500],
                     security="Authorization")
@@ -118,35 +117,32 @@ class RoleView(MethodView):
             logger.error("[role] Update failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return role
+        return {"data": role}
 
+    @operate_log
     @config_api.output(BaseOutSchema)
     @config_api.doc(summary="删除角色",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def delete(self, role_id: int):
-        if not db.session.query(db.exists().where(Role.id == role_id)).scalar():
-            abort(404, message="Not found")
-        result = Role.query.filter_by(id=role_id).delete()
         try:
+            db.session.delete(Role.query.get_or_404(role_id))
             db.session.commit()
         except:
             logger.error("[role] Delete failed", exc_info=True)
             db.session.rollback()
             abort(500, message="server error")
-        return {"success": result}
+        return {"success": True}
 
 
 class UserView(MethodView):
-    decorators = [verify_permission]
-
     @config_api.input(PageSchema, location="query", arg_name="query")
     @config_api.output(UserPageOutputSchema)
     @config_api.doc(summary="获取用户",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def get(self, username: str, query: dict):
-        return _get(User, "username", username, query["page"], query["per_page"])
+        return get_page(User.query, {"username": username}, query["page"], query["per_page"])
 
 
 api_view = ApiView.as_view("api_view")
@@ -165,6 +161,7 @@ config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"]
 
 
 @config_api.put("/role/<int:role_id>/api")
+@operate_log
 @config_api.input(ApiIdListSchema, location="json", arg_name="data")
 @config_api.output(RoleSingleOutputSchema, status_code=201)
 @config_api.doc(summary="为角色绑定api",
@@ -173,10 +170,18 @@ config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"]
 def role_add_api(role_id: int, data: dict):
     # 查询角色
     role: Role = Role.query.get_or_404(role_id)
-    # 设置接口列表
-    api_add = Api.query.filter(Api.id.in_(data["ids"])).all()
-    role.apis.extend(api_add)
+    # 筛选出需要添加的API id列表
+    ids = data["ids"]
+    current_ids = set(api.id for api in role.apis)
+    add_ids = list()
+    for id_ in ids:
+        if id_ not in current_ids:
+            add_ids.append(id_)
+    logger.info(f"[role-api] Role `{role.name}` will add api {add_ids}")
     try:
+        # 为角色添加API
+        api_add_list = Api.query.filter(Api.id.in_(add_ids)).all()
+        role.apis.extend(api_add_list)
         db.session.commit()
     except:
         logger.error("[role-api] Update failed", exc_info=True)
@@ -187,21 +192,30 @@ def role_add_api(role_id: int, data: dict):
     }
 
 
-def _get(model: db.Model, field_name: str, field_value: Any, page: int, per_page: int):
-    if field_value is None:
-        pagination = model.query.paginate(
-            page=page,
-            per_page=per_page
-        )
-    else:
-        pagination = model.query.filter_by(**{field_name: field_value}).paginate(
-            page=page,
-            per_page=per_page
-        )
-    data = pagination.items
-    if not data:
-        abort(404)
+@config_api.delete("/role/<int:role_id>/api")
+@operate_log
+@config_api.input(ApiIdListSchema, location="json", arg_name="data")
+@config_api.output(RoleSingleOutputSchema, status_code=201)
+@config_api.doc(summary="为角色解绑api",
+                responses=[200, 401, 403, 404, 500],
+                security="Authorization")
+def role_remove_api(role_id: int, data: dict):
+    # 查询角色
+    role: Role = Role.query.get_or_404(role_id)
+    # 筛选出需要删除的API id列表
+    ids = set(data["ids"])
+    current_apis = role.apis.copy()
+    for api in role.apis:
+        if api.id in ids:
+            current_apis.remove(api)
+    logger.info(f"[role-api] Role `{role.name}` will set apis={[api.id for api in current_apis]}")
+    try:
+        role.apis = current_apis
+        db.session.commit()
+    except:
+        logger.error("[role-api] Delete failed", exc_info=True)
+        db.session.rollback()
+        abort(500, message="server error")
     return {
-        "data": data,
-        "pagination": pagination_builder(pagination)
+        "data": role
     }

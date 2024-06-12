@@ -65,8 +65,9 @@ class ApiView(MethodView):
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def delete(self, api_id: int):
+        api = Api.query.get_or_404(api_id)
         try:
-            db.session.delete(Api.query.get_or_404(api_id))
+            db.session.delete(api)
             db.session.commit()
         except:
             logger.error("[api] Delete failed", exc_info=True)
@@ -125,8 +126,9 @@ class RoleView(MethodView):
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def delete(self, role_id: int):
+        role = Role.query.get_or_404(role_id)
         try:
-            db.session.delete(Role.query.get_or_404(role_id))
+            db.session.delete(role)
             db.session.commit()
         except:
             logger.error("[role] Delete failed", exc_info=True)

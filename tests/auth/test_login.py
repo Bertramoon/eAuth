@@ -1,17 +1,20 @@
+from datetime import datetime, timedelta
 import unittest
 
-from eAuth import create_app, verify_token
-from eAuth.extensions import db
+from eAuth import create_app, verify_token, LoginLog
+from eAuth.extensions import db, limiter
 from eAuth.auth.models import User
 
 
 class TestLogin(unittest.TestCase):
     app = None
     context = None
+    login_url = "/api/auth/login"
+    limiter.enabled = False
 
     @classmethod
     def setUpClass(cls) -> None:
-        cls.app = create_app()
+        cls.app = create_app('test')
         cls.app.config["TESTING"] = True
         cls.app.config["SQLALCHEMY_ECHO"] = False
         cls.app.config["SQLALCHEMY_DATABASE_URI"] = "sqlite:///:memory:"
@@ -36,7 +39,7 @@ class TestLogin(unittest.TestCase):
             "username": user["username"],
             "password": user["password"]
         }
-        res = self.client.post("/api/auth/login", json=data)
+        res = self.client.post(self.login_url, json=data)
         result = res.json
         self.assertTrue(result.get("success"))
         self.assertIn("token", result)
@@ -53,7 +56,7 @@ class TestLogin(unittest.TestCase):
             "username": user["username"],
             "password": "hack"
         }
-        res = self.client.post("/api/auth/login", json=data)
+        res = self.client.post(self.login_url, json=data)
         result = res.json
         self.assertFalse(result.get("success"))
 
@@ -64,30 +67,66 @@ class TestLogin(unittest.TestCase):
             "username": user["username"],
             "password": user["password"]
         }
-        res = self.client.post("/api/auth/login", json=data)
+        res = self.client.post(self.login_url, json=data)
         result = res.json
         self.assertFalse(result.get("success"))
 
     def test_login_incorrect(self):
-        """登录被临时锁定用户"""
+        """登录失败被锁定用户时无法登录"""
         user = self.get_login_incorrect_user()
         data = {
             "username": user["username"],
             "password": user["password"]
         }
-        res = self.client.post("/api/auth/login", json=data)
+        res = self.client.post(self.login_url, json=data)
         result = res.json
         self.assertFalse(result.get("success"))
 
+    def test_short_login_incorrect(self):
+        """登录失败被暂时锁定用户时无法登录"""
+        user = self.get_short_login_incorrect_user()
+        data = {
+            "username": user["username"],
+            "password": user["password"]
+        }
+        res = self.client.post(self.login_url, json=data)
+        result = res.json
+        self.assertTrue(result.get("success"))
+
+        data.update({"password": "fake_password"})
+        for _ in range(self.app.config.get("SHORT_MAX_LOGIN_INCORRECT")):
+            self.client.post(self.login_url, json=data)
+        data.update({"password": user["password"]})
+        res = self.client.post(self.login_url, json=data)
+        result = res.json
+        self.assertFalse(result.get("success"), msg="登录失败超过配置的次数后应被暂时锁定，无法登录")
+
+    def test_will_short_login_incorrect(self):
+        """登录失败n-1次时再使用正确密码登录"""
+        user = self.get_admin_user()
+        data = {
+            "username": user["username"],
+            "password": "fake_password"
+        }
+
+        for _ in range(self.app.config.get("SHORT_MAX_LOGIN_INCORRECT") - 1):
+            res = self.client.post(self.login_url, json=data)
+            self.assertFalse(res.json.get("success"), msg="密码错误时不应该能够登录")
+
+        data.update({'password': user["password"]})
+        res = self.client.post(self.login_url, json=data)
+        result = res.json
+        self.assertTrue(result.get("success"))
+
     def test_empty_username(self):
         """空用户名登录"""
-        res = self.client.post("/api/auth/login", json={"password": "123456"})
+        res = self.client.post(self.login_url, json={"password": "123456"})
         result = res.json
         self.assertFalse(result.get("success"))
 
     def test_empty_password(self):
         """空密码登录"""
-        res = self.client.post("/api/auth/login", json={"username": "123456"})
+        res = self.client.post(self.login_url, json={"username": "123456"})
         result = res.json
         self.assertFalse(result.get("success"))
 
@@ -121,9 +160,23 @@ class TestLogin(unittest.TestCase):
             "username": "locked",
             "password": "123456",
             "locked": False,
-            "login_incorrect": self.app.config.get("MAX_LOGIN_INCORRECT", 3)
+            "login_incorrect": self.app.config.get("MAX_LOGIN_INCORRECT", 50)
         }
         self.set_user(**user)
+        return user
+
+    def get_short_login_incorrect_user(self):
+        user = {
+            "username": "locked",
+            "password": "123456",
+            "locked": False,
+            "login_incorrect": self.app.config.get("SHORT_MAX_LOGIN_INCORRECT")
+        }
+        self.set_user(**user)
+        login_log = LoginLog(username=user['username'], ip_addr='127.0.0.1', operate='登录', success=False,
+                             operator_datetime=datetime.utcnow() - timedelta(hours=self.app.config.get("SHORT_MAX_LOGIN_DELAY")))
+        db.session.add(login_log)
+        db.session.commit()
         return user
 
     @staticmethod

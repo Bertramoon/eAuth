@@ -1,3 +1,4 @@
+import datetime
 import logging
 
 from apiflask import APIBlueprint, abort
@@ -5,8 +6,9 @@ from flask import current_app, g
 
 from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from .models import User
+from ..log.models import LoginLog
 from ..base.schemas import BaseOutSchema
-from ..extensions import limiter
+from ..extensions import limiter, db
 from ..utils.decorator import login_log
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
@@ -23,18 +25,50 @@ def login(data):
     username, password = data["username"], data["password"]
     user = User.query.filter_by(username=username).first()
 
-    if user and (user.is_locked or user.login_incorrect >= current_app.config.get("MAX_LOGIN_INCORRECT", 3)):
-        logger.info(f"[login] User's locked: {user.is_locked} and login incorrect: {user.login_incorrect}")
-        abort(401, message="Login is limited, please contact your administrator")
-
-    if not (user and user.validate_password(password)):
-        if not user:
-            logger.info("[login] Get none user.")
-        else:
-            logger.warning(f"[auth] The password of the user `{user.username}` was failed.")
+    if not user:
+        logger.info("[login] Get none user.")
+        abort(401, message="Username or password failed")
+    if user.is_locked:
+        logger.info(f"[login] User <{user.username}> is locked")
         abort(401, message="Username or password failed")
 
-    logger.info(f"[login] User `{user.username}` login success")
+    # 设置短期最大登录失败次数和长期最大登录失败次数，达到长期最大登录失败次数后，不能再进行登录，只能通过找回密码的方式重置密码
+    is_max_login_incorrect = user.login_incorrect >= current_app.config.get("MAX_LOGIN_INCORRECT", 9)
+    if is_max_login_incorrect:
+        logger.info(
+            f"[login] Over than the MAX_LOGIN_INCORRECT(user <{user.username}>, times <{user.login_incorrect}>)")
+        abort(401, message="Username or password failed")
+
+    last_login_log: LoginLog = \
+        LoginLog.query.filter_by(username=user.username, success=False).order_by(LoginLog.operator_datetime.desc()).first()
+    is_short_max_login_incorrect = (
+            user.login_incorrect >= current_app.config.get("SHORT_MAX_LOGIN_INCORRECT", 3)
+            and last_login_log is not None
+            and datetime.datetime.utcnow() - last_login_log.operator_datetime <
+            datetime.timedelta(hours=current_app.config.get("SHORT_MAX_LOGIN_DELAY", 3)))
+    if is_short_max_login_incorrect:
+        logger.info(
+            f"[login] Over than the SHORT_MAX_LOGIN_DELAY(user <{user.username}>, times <{user.login_incorrect}>)")
+        abort(401, message="Username or password failed")
+
+    if not user.validate_password(password):
+        try:
+            user.login_incorrect += 1
+            db.session.commit()
+        except:
+            db.session.rollback()
+            logger.error(f"[login] Set the login_incorrect failed for user {user.username}", exc_info=True)
+        logger.warning(f"[auth] The password of the user `{user.username}` was failed.")
+        abort(401, message="Username or password failed")
+
+    logger.info(f"[login] User <{user.username}> login success")
+
+    try:
+        user.login_incorrect = 0
+        db.session.commit()
+    except:
+        db.session.rollback()
+        logger.warning(f"[login] Set the login_incorrect to zero failed for user {user.username}", exc_info=True)
 
     return {
         "token": user.auth_token

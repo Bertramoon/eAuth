@@ -24,7 +24,7 @@ def verify_token(token: str):
         if data.get("exp") < time.time():
             raise JoseError("Token expired")
         user: User = User.query.get(data.get("uid"))
-        if user and (user.is_locked or user.login_incorrect >= current_app.config.get("MAX_LOGIN_INCORRECT", 3)):
+        if user and user.is_locked:
             return None
     except JoseError:
         return None

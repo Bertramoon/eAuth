@@ -87,8 +87,13 @@ class BaseConfig(object):
     # 开启缓存鉴权
     CACHE_AUTH_SWITCH = True
 
+    # token有效期
     TOKEN_EXPIRED = 60 * 60 * 3
-    MAX_LOGIN_INCORRECT = 5
+
+    # 登录失败防暴力破解
+    SHORT_MAX_LOGIN_INCORRECT = 5  # 短期最大登录失败次数
+    SHORT_MAX_LOGIN_DELAY = 1  # 短期最大登录失败后能够再次登录的时间间隔（小时）
+    MAX_LOGIN_INCORRECT = 15  # 最大登录失败次数
 
     # 日志存放位置
     LOG_CONFIG_FILE = os.path.join(BASE_DIR, "log_config.yaml")
@@ -109,13 +114,20 @@ class Production(BaseConfig):
                               + "?charset=utf8"
 
     TOKEN_EXPIRED = 60 * 60 * 2
-    MAX_LOGIN_INCORRECT = 3
+    SHORT_MAX_LOGIN_INCORRECT = 3
+    SHORT_MAX_LOGIN_DELAY = 3
+    MAX_LOGIN_INCORRECT = 9
 
     # 缓存设置
     DEBUG = False
 
 
+class Testing(Production):
+    SQLALCHEMY_DATABASE_URI = "sqlite:///:memory:"
+
+
 config = {
     'base': BaseConfig,
     'production': Production,
+    'test': Testing
 }

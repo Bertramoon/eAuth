@@ -71,3 +71,19 @@ class AuditLogInterface(ABC):
         if resource_id:
             g.resource_id = resource_id
         return data
+
+
+class RequestAuditLog(AuditLogInterface):
+    def get_request_data(self, data: dict, **kwargs) -> dict:
+        return data
+
+    def get_resource_id(self, data: dict, **kwargs) -> int:
+        pass
+
+    def get_response_data(self, data: dict, **kwargs) -> dict:
+        pass
+
+
+class RequestWithIdAuditLog(RequestAuditLog):
+    def get_resource_id(self, data: dict, **kwargs) -> int:
+        return data.get("id")

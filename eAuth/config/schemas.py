@@ -2,15 +2,24 @@ import logging
 from marshmallow.decorators import validates, validates_schema, pre_load
 from sqlalchemy import and_
 
+from flask import g, request
 from apiflask.fields import String, Integer, List, Nested, Boolean
 from apiflask.validators import Length, Regexp, OneOf, ValidationError
 from apiflask.schemas import Schema
 
 from ..auth.models import Role, Api
-from ..base.schemas import BasePageOutSchema, BaseOutSchema, AuditLogInterface
+from ..base.schemas import BasePageOutSchema, BaseOutSchema, AuditLogInterface, PageSchema
 from ..extensions import db
 
 logger = logging.getLogger(__name__)
+
+
+class ApiQuerySchema(PageSchema):
+    url = String(validate=[Length(min=0, max=256), Regexp(regex=r'^[/a-zA-Z0-9\\u4e00-\\u9fff\_\-\.~\{\}]*$')])
+
+
+class RoleQuerySchema(PageSchema):
+    name = String(validate=[Length(min=0, max=30)])
 
 
 class ApiSchema(Schema, AuditLogInterface):
@@ -24,7 +33,12 @@ class ApiSchema(Schema, AuditLogInterface):
     def repeat_validate(self, data, **kwargs):
         url = data.get("url")
         method = data.get("method")
-        if db.session.query(db.exists().where(and_(Api.url == url, Api.method == method))).scalar():
+        api_id = request.view_args.get("api_id")
+        if api_id:
+            condition = and_(Api.id != api_id, Api.url == url, Api.method == method)
+        else:
+            condition = and_(Api.url == url, Api.method == method)
+        if db.session.query(db.exists().where(condition)).scalar():
             raise ValidationError(f"Duplicate API: {method} {url}.")
 
     def get_request_data(self, data: dict, **kwargs) -> dict:
@@ -44,8 +58,13 @@ class RoleSchema(Schema, AuditLogInterface):
 
     @validates("name")
     def name_exists_validate(self, value):
-        if db.session.query(db.exists().where(Role.name == value)).scalar():
-            raise ValidationError(f"Duplicate name: {value}")
+        role_id = request.view_args.get("role_id")
+        if role_id:
+            condition = and_(Role.id != role_id, Role.name == value)
+        else:
+            condition = (Role.name == value)
+        if db.session.query(db.exists().where(condition)).scalar():
+            raise ValidationError(f"Duplicate name: {value}.")
 
     def get_request_data(self, data: dict, **kwargs) -> dict:
         return data
@@ -59,6 +78,7 @@ class RoleSchema(Schema, AuditLogInterface):
 
 class UserSchema(Schema):
     username = String(required=True, validate=[Length(min=1, max=20)])
+    email = String()
     locked = Boolean()
 
 

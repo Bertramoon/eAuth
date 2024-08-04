@@ -6,19 +6,22 @@ import yaml
 from apiflask import APIFlask, abort
 from flask import request, g
 from sqlalchemy import inspect
+from faker import Faker
+import random
 
 from .auth.api import auth_api
 from .auth.models import User, Api, Role
 from .config.api import config_api
 from .log.api import log_api
 from .constant import CACHE_TIME_AUTH
-from .extensions import db, migrate, cors, cache, scheduler, limiter, get_ipaddr
+from .extensions import db, migrate, cors, cache, scheduler, limiter, mail
 from .log.models import OperateLog, LoginLog
 from .schedule.auth import cache_auth
 from .settings import config
 from .utils.auth import verify_token
 
 logger = logging.getLogger(__name__)
+fake = Faker('zh_CN')
 
 
 def create_app(config_name="base"):
@@ -42,6 +45,7 @@ def register_extensions(app):
     migrate.init_app(app)
     cache.init_app(app)
     limiter.init_app(app)
+    mail.init_app(app)
     scheduler.init_app(app)
     with app.app_context():
         insp = inspect(db.engine)
@@ -80,6 +84,9 @@ def register_processor(app):
 
     @app.before_request
     def jwt_auth():
+        # options直接放行
+        if request.method == 'OPTIONS':
+            return
         # 认证
         auth_white_list = app.config.get("AUTH_WHITE_LIST", {"POST /api/auth/login"})
         if f"{request.method.upper()} {request.path}" in auth_white_list:
@@ -119,9 +126,10 @@ def register_commands(app):
 
     @app.cli.command()
     @click.option('--username', prompt=True, help='用户名')
+    @click.option('--email', prompt=True, help='邮箱')
     @click.option('--password', prompt=True, hide_input=True, help='密码')
     @click.option('--confirm_password', prompt=True, hide_input=True, help='确认密码')
-    def create_user(username, password, confirm_password):
+    def create_user(username, email, password, confirm_password):
         """创建新用户"""
         if password != confirm_password:
             click.echo("The confirm_password not equals to the password. Please check it!")
@@ -131,7 +139,7 @@ def register_commands(app):
         role_name = click.prompt("Please choose the role for the user",
                                  type=click.Choice(list(role_name_id_map.keys()) + ["null"], case_sensitive=True))
         roles = [Role.query.get(role_name_id_map.get(role_name))] if role_name_id_map.get(role_name) != "null" else []
-        user = User(username=username, roles=roles)
+        user = User(username=username, email=email, roles=roles)
         user.set_password(password)
         db.session.add(user)
         db.session.commit()
@@ -169,3 +177,21 @@ def register_commands(app):
         db.session.add(role1)
         db.session.add(role2)
         db.session.commit()
+
+    @app.cli.command()
+    @click.option('--count', default=200, type=int)
+    def fake_api(count):
+        methods = [
+            "GET", "POST", "PUT", "DELETE", "PATCH"
+        ]
+        for i in range(count):
+            try:
+                api = Api(
+                    url="/"+fake.uri_path(),
+                    method=random.choice(methods),
+                    description=fake.sentence()
+                )
+                db.session.add(api)
+                db.session.commit()
+            except:
+                db.session.rollback()

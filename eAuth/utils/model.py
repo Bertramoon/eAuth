@@ -2,7 +2,7 @@ from apiflask import abort, pagination_builder
 from flask_sqlalchemy.query import Query
 
 
-def get_page(query: Query, filter_condition: dict, page: int, per_page: int):
+def get_page(query: Query, filter_condition: dict, page: int, per_page: int, **kwargs):
     """
     根据条件查询数据，并返回分页后的数据
 
@@ -25,5 +25,5 @@ def get_page(query: Query, filter_condition: dict, page: int, per_page: int):
         abort(404)
     return {
         "data": data,
-        "pagination": pagination_builder(pagination)
+        "pagination": pagination_builder(pagination, **kwargs)
     }

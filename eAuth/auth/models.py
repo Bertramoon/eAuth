@@ -51,6 +51,7 @@ class User(db.Model):
     password_hash = db.Column(db.String(256))
     locked = db.Column(db.Boolean, default=False)  # 账号是否被锁定/冻结
     login_incorrect = db.Column(db.Integer, default=0)  # 登录错误次数
+    email = db.Column(db.String(320), unique=True, nullable=False)
 
     # 关联角色
     roles = db.relationship('Role', secondary=users_roles, back_populates='users')
@@ -69,6 +70,7 @@ class User(db.Model):
         header = {"alg": "HS256"}
         payload = {
             "uid": self.id,
+            "username": self.username,
             "exp": time.time() + current_app.config.get("TOKEN_EXPIRED", 60 * 60)
         }
         return jwt.encode(header, payload, current_app.config["SECRET_KEY"]).decode()

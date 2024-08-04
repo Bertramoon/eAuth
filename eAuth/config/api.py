@@ -1,14 +1,18 @@
 import logging
 
+from flask import g
 from flask.views import MethodView
-from apiflask import APIBlueprint, abort, pagination_builder
+from apiflask import APIBlueprint, abort
 
 from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema, \
-    ApiIdListSchema, RoleSingleOutputSchema, ApiSingleOutputSchema
+    ApiIdListSchema, RoleSingleOutputSchema, ApiSingleOutputSchema, ApiQuerySchema, RoleQuerySchema
 from ..auth.models import Api, Role, User
+from ..auth.schemas import RegisterInputSchema, ResetPasswordInputSchema, ChangePasswordInputSchema
 from ..base.schemas import BaseOutSchema, PageSchema
 from ..extensions import db
+from ..utils.auth import required_admin, generate_random_password
 from ..utils.decorator import operate_log
+from ..utils.message import message_util
 from ..utils.model import get_page
 
 config_api = APIBlueprint("config", __name__, url_prefix="/api/config")
@@ -16,13 +20,16 @@ logger = logging.getLogger(__name__)
 
 
 class ApiView(MethodView):
-    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.input(ApiQuerySchema, location="query", arg_name="query")
     @config_api.output(ApiPageOutputSchema)
     @config_api.doc(summary="获取API",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def get(self, api_id: int, query: dict):
-        return get_page(Api.query, {"id": api_id}, query["page"], query["per_page"])
+        model = Api.query
+        if query.get("url"):
+            model = model.filter(Api.url.like(f"%{query.get('url')}%"))
+        return get_page(model, {"id": api_id}, query["page"], query["per_page"])
 
     @operate_log
     @config_api.input(ApiSchema, location="json", arg_name="data")
@@ -77,13 +84,16 @@ class ApiView(MethodView):
 
 
 class RoleView(MethodView):
-    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.input(RoleQuerySchema, location="query", arg_name="query")
     @config_api.output(RolePageOutputSchema)
     @config_api.doc(summary="获取角色",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
     def get(self, role_id: int, query: dict):
-        return get_page(Role.query, {"id": role_id}, query["page"], query["per_page"])
+        model = Role.query
+        if query.get("name"):
+            model = model.filter(Role.name.like(f"%{query.get('name')}%"))
+        return get_page(model, {"id": role_id}, query["page"], query["per_page"])
 
     @operate_log
     @config_api.input(RoleSchema, location="json", arg_name="data")
@@ -162,12 +172,27 @@ config_api.add_url_rule("/user", view_func=user_view, defaults={"username": None
 config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"])
 
 
+@config_api.get("/role/unbind/<int:role_id>")
+@config_api.input(ApiQuerySchema, location="query", arg_name="query")
+@config_api.output(ApiPageOutputSchema)
+@config_api.doc(summary="查询角色未绑定的API列表",
+                responses=[200, 401, 403, 404, 500],
+                security="Authorization")
+def get_role_unbind_api(role_id: int, query: dict):
+    role: Role = Role.query.get_or_404(role_id)
+    model = Api.query.filter(~Api.id.in_(item.id for item in role.apis))
+    if query.get("url"):
+        model = model.filter(Api.url.like(f"%{query.get('url')}%"))
+    result = get_page(model, {}, query["page"], query["per_page"], role_id=role_id)
+    return result
+
+
 @config_api.put("/role/<int:role_id>/api")
 @operate_log
 @config_api.input(ApiIdListSchema, location="json", arg_name="data")
 @config_api.output(RoleSingleOutputSchema, status_code=201)
 @config_api.doc(summary="为角色绑定api",
-                responses=[200, 401, 403, 404, 500],
+                responses=[201, 401, 403, 404, 500],
                 security="Authorization")
 def role_add_api(role_id: int, data: dict):
     # 查询角色
@@ -199,7 +224,7 @@ def role_add_api(role_id: int, data: dict):
 @config_api.input(ApiIdListSchema, location="json", arg_name="data")
 @config_api.output(RoleSingleOutputSchema, status_code=201)
 @config_api.doc(summary="为角色解绑api",
-                responses=[200, 401, 403, 404, 500],
+                responses=[201, 401, 403, 404, 500],
                 security="Authorization")
 def role_remove_api(role_id: int, data: dict):
     # 查询角色
@@ -221,3 +246,72 @@ def role_remove_api(role_id: int, data: dict):
     return {
         "data": role
     }
+
+
+@config_api.post('/user/register')
+@operate_log
+@config_api.input(RegisterInputSchema, location='json', arg_name='data')
+@config_api.output(BaseOutSchema)
+@config_api.doc(summary="注册账号",
+                responses=[200, 401, 403, 422],
+                security="Authorization")
+@required_admin
+def register(data):
+    # 注册
+    user = User(
+        username=data['username'],
+        email=data['email']
+    )
+    password = generate_random_password()
+    user.set_password(password)
+    try:
+        db.session.add(user)
+        db.session.commit()
+    except:
+        db.session.rollback()
+        logger.error(f"[user] Create user `{user.username}`({user.email}) fail.", exc_info=True)
+    # 推送消息
+    message_util.send(None, user.email, '账号注册', 'emails/register', username=user.username, password=password)
+
+
+@config_api.post('/user/reset')
+@operate_log
+@config_api.input(ResetPasswordInputSchema, location='json', arg_name='data')
+@config_api.output(BaseOutSchema)
+@config_api.doc(summary="重置密码",
+                responses=[200, 401, 403, 422],
+                security="Authorization")
+@required_admin
+def reset(data):
+    email: str = data['email']
+    user: User = User.query.filter_by(email=email).first()
+    if not user:
+        abort(404)
+
+    password = generate_random_password()
+    user.set_password(password)
+    try:
+        db.session.commit()
+    except:
+        db.session.rollback()
+        logger.error(f"[user] Reset user `{user.username}`({user.email}) fail.", exc_info=True)
+    # 推送消息
+    message_util.send(None, user.email, '账号密码重置', 'emails/reset', username=user.username, password=password)
+
+
+@config_api.post('/user/change-password')
+@operate_log
+@config_api.input(ChangePasswordInputSchema, location='json', arg_name='data')
+@config_api.output(BaseOutSchema)
+@config_api.doc(summary="修改密码",
+                responses=[200, 401, 403, 422],
+                security="Authorization")
+def change_password(data):
+    new_password: str = data['new_password']
+    user: User = g.get('user')
+    try:
+        user.set_password(new_password)
+        db.session.commit()
+    except:
+        db.session.rollback()
+        logger.error(f"[user] User `{user.username}`({user.email}) change password failed.", exc_info=True)

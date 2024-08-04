@@ -4,11 +4,11 @@ import logging
 from apiflask import APIBlueprint, abort
 from flask import current_app, g
 
-from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from .models import User
-from ..log.models import LoginLog
+from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from ..base.schemas import BaseOutSchema
 from ..extensions import limiter, db
+from ..log.models import LoginLog
 from ..utils.decorator import login_log
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
@@ -40,7 +40,8 @@ def login(data):
         abort(401, message="Username or password failed")
 
     last_login_log: LoginLog = \
-        LoginLog.query.filter_by(username=user.username, success=False).order_by(LoginLog.operator_datetime.desc()).first()
+        LoginLog.query.filter_by(username=user.username, success=False).order_by(
+            LoginLog.operator_datetime.desc()).first()
     is_short_max_login_incorrect = (
             user.login_incorrect >= current_app.config.get("SHORT_MAX_LOGIN_INCORRECT", 3)
             and last_login_log is not None

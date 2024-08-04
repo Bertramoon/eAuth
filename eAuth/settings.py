@@ -104,6 +104,14 @@ class BaseConfig(object):
     # 不鉴权接口
     PERMISSION_WHITE_LIST = {"POST /api/auth/check"}
 
+    # 邮件设置
+    MAIL_USE_SSL = True
+    MAIL_PORT = 465
+    MAIL_SERVER = os.getenv('MAIL_SERVER')
+    MAIL_USERNAME = os.getenv('MAIL_USERNAME')
+    MAIL_PASSWORD = os.getenv('MAIL_PASSWORD')
+    MAIL_DEFAULT_SENDER = (os.getenv("MAIL_NAME"), MAIL_USERNAME)
+
 
 class Production(BaseConfig):
     SECRET_KEY = secrets.token_hex(32)
@@ -120,6 +128,9 @@ class Production(BaseConfig):
 
     # 缓存设置
     DEBUG = False
+
+    # 邮件约束
+    MAIL_DOMAIN_ONLY = os.getenv("MAIL_DOMAIN", None)
 
 
 class Testing(Production):

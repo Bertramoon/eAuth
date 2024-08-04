@@ -1,10 +1,11 @@
 import logging
 import time
 from functools import wraps
+import secrets
 
 from apiflask import abort
 from authlib.jose import jwt, JWTClaims, JoseError
-from flask import current_app, request, g
+from flask import current_app, g
 
 from ..auth.models import User
 
@@ -33,3 +34,16 @@ def verify_token(token: str):
         return None
     else:
         return user
+
+
+def required_admin(func):
+    @wraps(func)
+    def decorator(*args, **kwargs):
+        if g.user.username != "admin":  # admin直接通过
+            abort(403)
+        return func(*args, **kwargs)
+    return decorator
+
+
+def generate_random_password():
+    return secrets.token_hex(32)

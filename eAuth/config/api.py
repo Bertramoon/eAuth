@@ -1,17 +1,20 @@
 import logging
 
+from apiflask import APIBlueprint, abort, HTTPError
 from flask import g
 from flask.views import MethodView
-from apiflask import APIBlueprint, abort
+from sqlalchemy import or_
 
-from .schemas import ApiSchema, RoleSchema, ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema, \
-    ApiIdListSchema, RoleSingleOutputSchema, ApiSingleOutputSchema, ApiQuerySchema, RoleQuerySchema
+from .schemas import ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSchema, \
+    ApiIdListInputSchema, RoleSingleOutputSchema, ApiSingleOutputSchema, ApiQuerySchema, RoleQuerySchema, \
+    RoleIdListInputSchema, \
+    UserSingleOutputSchema, UserQuerySchema, RoleLightOutputSchema, RegisterInputSchema, \
+    ResetPasswordInputSchema, ChangePasswordInputSchema, UserInputSchema, ApiInputSchema, RoleInputSchema
 from ..auth.models import Api, Role, User
-from ..auth.schemas import RegisterInputSchema, ResetPasswordInputSchema, ChangePasswordInputSchema
-from ..base.schemas import BaseOutSchema, PageSchema
+from ..base.schemas import BaseOutSchema
 from ..extensions import db
 from ..utils.auth import required_admin, generate_random_password
-from ..utils.decorator import operate_log
+from ..utils.decorator import operate_log, security_log
 from ..utils.message import message_util
 from ..utils.model import get_page
 
@@ -32,7 +35,7 @@ class ApiView(MethodView):
         return get_page(model, {"id": api_id}, query["page"], query["per_page"])
 
     @operate_log
-    @config_api.input(ApiSchema, location="json", arg_name="data")
+    @config_api.input(ApiInputSchema, location="json", arg_name="data")
     @config_api.output(ApiSingleOutputSchema, status_code=201)
     @config_api.doc(summary="创建API",
                     responses=[201, 401, 403, 422, 500],
@@ -49,7 +52,7 @@ class ApiView(MethodView):
         return {"data": api}
 
     @operate_log
-    @config_api.input(ApiSchema, location="json", arg_name="data")
+    @config_api.input(ApiInputSchema, location="json", arg_name="data")
     @config_api.output(ApiSingleOutputSchema, status_code=201)
     @config_api.doc(summary="修改API",
                     responses=[201, 401, 403, 404, 422, 500],
@@ -96,7 +99,7 @@ class RoleView(MethodView):
         return get_page(model, {"id": role_id}, query["page"], query["per_page"])
 
     @operate_log
-    @config_api.input(RoleSchema, location="json", arg_name="data")
+    @config_api.input(RoleInputSchema, location="json", arg_name="data")
     @config_api.output(RoleSingleOutputSchema, status_code=201)
     @config_api.doc(summary="创建角色",
                     responses=[201, 401, 403, 422, 500],
@@ -113,7 +116,7 @@ class RoleView(MethodView):
         return {"data": role}
 
     @operate_log
-    @config_api.input(RoleSchema, location="json", arg_name="data")
+    @config_api.input(RoleInputSchema, location="json", arg_name="data")
     @config_api.output(RoleSingleOutputSchema, status_code=201)
     @config_api.doc(summary="修改角色",
                     responses=[201, 401, 403, 404, 422, 500],
@@ -148,13 +151,50 @@ class RoleView(MethodView):
 
 
 class UserView(MethodView):
-    @config_api.input(PageSchema, location="query", arg_name="query")
+    @config_api.input(UserQuerySchema, location="query", arg_name="query")
     @config_api.output(UserPageOutputSchema)
     @config_api.doc(summary="获取用户",
                     responses=[200, 401, 403, 404, 500],
                     security="Authorization")
-    def get(self, username: str, query: dict):
-        return get_page(User.query, {"username": username}, query["page"], query["per_page"])
+    def get(self, uid: int, query: dict):
+        model = User.query
+        if query.get("username"):
+            model = model.filter(or_(
+                User.username.like(f"%{query.get('username')}%"),
+                User.email.like(f"%{query.get('username')}%")
+            ))
+        return get_page(model, {"id": uid}, query["page"], query["per_page"])
+
+    @operate_log
+    @config_api.input(UserInputSchema, location="json", arg_name="data")
+    @config_api.output(UserSingleOutputSchema, status_code=201)
+    @config_api.doc(summary="修改用户基本信息",
+                    responses=[201, 401, 403, 404, 500],
+                    security="Authorization")
+    def put(self, uid, data):
+        user: User = User.query.get_or_404(uid)
+        if not data:
+            return user
+        email = data.get("email")
+        locked = data.get("locked")
+        try:
+            if email:
+                user.email = email
+            if locked is not None:
+                if user.username == "admin":
+                    abort(422, message="Admin can't be locked")
+                user.locked = locked
+            db.session.commit()
+        except HTTPError:
+            raise
+        except:
+            logger.error("[update user] Update failed", exc_info=True)
+            db.session.rollback()
+            abort(500, message="server error")
+
+        return {
+            "data": user
+        }
 
 
 api_view = ApiView.as_view("api_view")
@@ -168,8 +208,8 @@ config_api.add_url_rule("/role", view_func=role_view, methods=["POST"])
 config_api.add_url_rule("/role/<int:role_id>", view_func=role_view, methods=["GET", "PUT", "DELETE"])
 
 user_view = UserView.as_view("user_view")
-config_api.add_url_rule("/user", view_func=user_view, defaults={"username": None}, methods=["GET"])
-config_api.add_url_rule("/user/<username>", view_func=user_view, methods=["GET"])
+config_api.add_url_rule("/user", view_func=user_view, defaults={"uid": None}, methods=["GET"])
+config_api.add_url_rule("/user/<int:uid>", view_func=user_view, methods=["GET", "PUT"])
 
 
 @config_api.get("/role/unbind/<int:role_id>")
@@ -189,7 +229,7 @@ def get_role_unbind_api(role_id: int, query: dict):
 
 @config_api.put("/role/<int:role_id>/api")
 @operate_log
-@config_api.input(ApiIdListSchema, location="json", arg_name="data")
+@config_api.input(ApiIdListInputSchema, location="json", arg_name="data")
 @config_api.output(RoleSingleOutputSchema, status_code=201)
 @config_api.doc(summary="为角色绑定api",
                 responses=[201, 401, 403, 404, 500],
@@ -198,7 +238,7 @@ def role_add_api(role_id: int, data: dict):
     # 查询角色
     role: Role = Role.query.get_or_404(role_id)
     # 筛选出需要添加的API id列表
-    ids = data["ids"]
+    ids = set(data["ids"])
     current_ids = set(api.id for api in role.apis)
     add_ids = list()
     for id_ in ids:
@@ -221,7 +261,7 @@ def role_add_api(role_id: int, data: dict):
 
 @config_api.delete("/role/<int:role_id>/api")
 @operate_log
-@config_api.input(ApiIdListSchema, location="json", arg_name="data")
+@config_api.input(ApiIdListInputSchema, location="json", arg_name="data")
 @config_api.output(RoleSingleOutputSchema, status_code=201)
 @config_api.doc(summary="为角色解绑api",
                 responses=[201, 401, 403, 404, 500],
@@ -248,12 +288,56 @@ def role_remove_api(role_id: int, data: dict):
     }
 
 
+@config_api.post("/user/<int:uid>/role")
+@operate_log
+@config_api.input(RoleIdListInputSchema, location="json", arg_name="data")
+@config_api.output(UserSingleOutputSchema, status_code=201)
+@config_api.doc(summary="为用户授权角色",
+                responses=[201, 401, 403, 404, 500],
+                security="Authorization")
+def user_set_role(uid: int, data: dict):
+    # 查询用户
+    user: User = User.query.get_or_404(uid)
+    # 筛选出需要添加的角色id列表
+    ids = set(data["ids"])
+    try:
+        role_list = Role.query.filter(Role.id.in_(ids)).all()
+        user.roles = role_list
+        db.session.commit()
+    except:
+        logger.error("[user-role] Set roles failed", exc_info=True)
+        db.session.rollback()
+        abort(500, message="server error")
+    return {
+        "data": user
+    }
+
+
+@config_api.get('/user/roles')
+@config_api.output(RoleLightOutputSchema)
+@config_api.doc(summary="查询所有角色的id和角色名（不分页）",
+                responses=[200, 401, 403, 500],
+                security="Authorization")
+def get_roles_light():
+    """
+    获取轻量级的角色信息，仅包括角色id和名称
+    """
+    result = [
+        {"id": item[0], "name": item[1]}
+        for item in
+        db.session.query(Role.id, Role.name).order_by(Role.id.asc()).all()
+    ]
+    return {
+        "data": result
+    }
+
+
 @config_api.post('/user/register')
 @operate_log
 @config_api.input(RegisterInputSchema, location='json', arg_name='data')
-@config_api.output(BaseOutSchema)
+@config_api.output(UserSingleOutputSchema, status_code=201)
 @config_api.doc(summary="注册账号",
-                responses=[200, 401, 403, 422],
+                responses=[201, 401, 403, 422],
                 security="Authorization")
 @required_admin
 def register(data):
@@ -270,14 +354,16 @@ def register(data):
     except:
         db.session.rollback()
         logger.error(f"[user] Create user `{user.username}`({user.email}) fail.", exc_info=True)
+        abort(500, message="server error")
     # 推送消息
     message_util.send(None, user.email, '账号注册', 'emails/register', username=user.username, password=password)
+    return {"data": user}
 
 
 @config_api.post('/user/reset')
 @operate_log
 @config_api.input(ResetPasswordInputSchema, location='json', arg_name='data')
-@config_api.output(BaseOutSchema)
+@config_api.output(UserSingleOutputSchema)
 @config_api.doc(summary="重置密码",
                 responses=[200, 401, 403, 422],
                 security="Authorization")
@@ -295,12 +381,14 @@ def reset(data):
     except:
         db.session.rollback()
         logger.error(f"[user] Reset user `{user.username}`({user.email}) fail.", exc_info=True)
+        abort(500, message="server error")
     # 推送消息
     message_util.send(None, user.email, '账号密码重置', 'emails/reset', username=user.username, password=password)
+    return {"data": user}
 
 
 @config_api.post('/user/change-password')
-@operate_log
+@security_log("change password")
 @config_api.input(ChangePasswordInputSchema, location='json', arg_name='data')
 @config_api.output(BaseOutSchema)
 @config_api.doc(summary="修改密码",
@@ -315,3 +403,4 @@ def change_password(data):
     except:
         db.session.rollback()
         logger.error(f"[user] User `{user.username}`({user.email}) change password failed.", exc_info=True)
+        abort(500, message="server error")

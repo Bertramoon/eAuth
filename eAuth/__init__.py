@@ -15,7 +15,7 @@ from .config.api import config_api
 from .log.api import log_api
 from .constant import CACHE_TIME_AUTH
 from .extensions import db, migrate, cors, cache, scheduler, limiter, mail
-from .log.models import OperateLog, LoginLog
+from .log.models import OperateLog, SecurityLog
 from .schedule.auth import cache_auth
 from .settings import config
 from .utils.auth import verify_token
@@ -71,7 +71,8 @@ def register_processor(app):
             Role=Role,
             Api=Api,
             OperateLog=OperateLog,
-            LoginLog=LoginLog,
+            SecurityLog=SecurityLog,
+            fake=fake
         )
 
     @app.error_processor
@@ -192,6 +193,22 @@ def register_commands(app):
                     description=fake.sentence()
                 )
                 db.session.add(api)
+                db.session.commit()
+            except:
+                db.session.rollback()
+
+    @app.cli.command()
+    @click.option('--count', default=20, type=int)
+    def fake_role(count):
+        api_list = Api.query.all()
+        for i in range(count):
+            try:
+                role = Role(
+                    name=fake.word(),
+                    description=fake.sentence()
+                )
+                role.apis = random.choices(api_list, k=random.randint(2, 10))
+                db.session.add(role)
                 db.session.commit()
             except:
                 db.session.rollback()

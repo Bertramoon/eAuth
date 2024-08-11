@@ -20,21 +20,21 @@ class OperateLogSchema(Schema):
     request_data = String(dump_only=True)
     response_data = String(dump_only=True)
     success = Boolean()
-    operator_datetime = DateTime(format='%Y-%m-%d %H:%M:%S', dump_only=True)
+    operate_datetime = DateTime(format='%Y-%m-%d %H:%M:%S', dump_only=True)
 
 
 class OperateLogPageOutputSchema(BasePageOutSchema):
     data = List(Nested(OperateLogSchema))
 
 
-class LoginLogSchema(Schema):
+class SecurityLogSchema(Schema):
     id = Integer(dump_only=True)
     username = String(validate=[Regexp(r'^[a-zA-Z0-9\-_]+$', error='Invalid username'), Length(max=32)])
     ip_addr = String(validate=[IP()])
     operate = String(validate=[Length(max=32)])
     success = Boolean()
-    operator_datetime = DateTime(format='%Y-%m-%d %H:%M:%S', dump_only=True)
+    operate_datetime = DateTime(format='%Y-%m-%d %H:%M:%S', dump_only=True)
 
 
-class LoginLogPageOutputSchema(BasePageOutSchema):
-    data = List(Nested(LoginLogSchema))
+class SecurityLogPageOutputSchema(BasePageOutSchema):
+    data = List(Nested(SecurityLogSchema))

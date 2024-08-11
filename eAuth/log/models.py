@@ -27,12 +27,12 @@ class OperateLog(db.Model):
     # 响应结果
     success = db.Column(db.Boolean)
     # 操作时间
-    operator_datetime = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    operate_datetime = db.Column(db.DateTime, default=datetime.utcnow, index=True)
 
 
-class LoginLog(db.Model):
+class SecurityLog(db.Model):
     """
-    登录日志
+    安全日志
     """
     id = db.Column(db.Integer, primary_key=True)
     # 登录用户
@@ -44,4 +44,4 @@ class LoginLog(db.Model):
     # 结果
     success = db.Column(db.Boolean)
     # 操作时间
-    operator_datetime = db.Column(db.DateTime, default=datetime.utcnow, index=True)
+    operate_datetime = db.Column(db.DateTime, default=datetime.utcnow, index=True)

@@ -8,12 +8,7 @@ from ..utils.tool import is_ip
 class IP(Validator):
     default_error_message = "Invalid ip address: {input}."
 
-    def __init__(
-        self,
-        *,
-        only_str: Optional[bool] = True,
-        error: Optional[str] = None,
-    ):
+    def __init__(self, *, only_str: Optional[bool] = True, error: Optional[str] = None):
         self.only_str = only_str
         self.error = error
 

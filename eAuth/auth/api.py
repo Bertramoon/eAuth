@@ -8,15 +8,15 @@ from .models import User
 from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from ..base.schemas import BaseOutSchema
 from ..extensions import limiter, db
-from ..log.models import LoginLog
-from ..utils.decorator import login_log
+from ..log.models import SecurityLog
+from ..utils.decorator import security_log
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
 logger = logging.getLogger(__name__)
 
 
 @auth_api.post("/login")
-@login_log("登录")
+@security_log("login")
 @auth_api.input(LoginInputSchema, location="json", arg_name="data")
 @auth_api.output(LoginOutputSchema, status_code=200)
 @auth_api.doc(summary="登录接口，返回token信息", responses=[200, 401, 422])
@@ -39,13 +39,13 @@ def login(data):
             f"[login] Over than the MAX_LOGIN_INCORRECT(user <{user.username}>, times <{user.login_incorrect}>)")
         abort(401, message="Username or password failed")
 
-    last_login_log: LoginLog = \
-        LoginLog.query.filter_by(username=user.username, success=False).order_by(
-            LoginLog.operator_datetime.desc()).first()
+    last_login_log: SecurityLog = \
+        SecurityLog.query.filter_by(username=user.username, success=False).order_by(
+            SecurityLog.operate_datetime.desc()).first()
     is_short_max_login_incorrect = (
             user.login_incorrect >= current_app.config.get("SHORT_MAX_LOGIN_INCORRECT", 3)
             and last_login_log is not None
-            and datetime.datetime.utcnow() - last_login_log.operator_datetime <
+            and datetime.datetime.utcnow() - last_login_log.operate_datetime <
             datetime.timedelta(hours=current_app.config.get("SHORT_MAX_LOGIN_DELAY", 3)))
     if is_short_max_login_incorrect:
         logger.info(

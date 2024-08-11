@@ -5,7 +5,7 @@ from typing import Optional
 
 from flask import g, Response, request
 
-from ..log.models import OperateLog, LoginLog
+from ..log.models import OperateLog, SecurityLog
 from ..extensions import get_ipaddr, db
 
 logger = logging.getLogger(__name__)
@@ -74,10 +74,12 @@ def operate_log(func):
                 operate_api=operate_api,
                 status_code=status_code,
                 resource_id=resource_id,
-                request_data=json.dumps(request_data),
-                response_data=json.dumps(response_data),
                 success=success
             )
+            if request_data:
+                log_record.request_data = json.dumps(request_data)
+            if response_data:
+                log_record.response_data = json.dumps(response_data)
             db.session.add(log_record)
             db.session.commit()
             if not response_obj.is_json:
@@ -89,14 +91,14 @@ def operate_log(func):
     return decorator
 
 
-def login_log(operate: str):
+def security_log(operate: str):
     """
     记得装饰器必须装饰在input和output装饰器上面，在route下面
 
     e.g.
     ```
     @app.post('/login')
-    @login_log('登录')  # 注意位置
+    @security_log('login')  # 注意位置
     @app.input(LoginInputSchema, location='json', arg_name='data')
     @app.output(LoginOutputSchema)
     def add_api(api_id: int, data: dict):
@@ -129,7 +131,7 @@ def login_log(operate: str):
                     success = True
 
             try:
-                log_record = LoginLog(
+                log_record = SecurityLog(
                     username=username,
                     ip_addr=ip_addr,
                     operate=operate,

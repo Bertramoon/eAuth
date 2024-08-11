@@ -87,3 +87,17 @@ class RequestAuditLog(AuditLogInterface):
 class RequestWithIdAuditLog(RequestAuditLog):
     def get_resource_id(self, data: dict, **kwargs) -> int:
         return data.get("id")
+
+
+class ResponseGetResourceAuditLog(AuditLogInterface):
+    def get_request_data(self, data: dict, **kwargs) -> dict:
+        pass
+
+    def get_resource_id(self, data: dict, **kwargs) -> int:
+        if data.get("success") is True and isinstance(data.get("data"), dict):
+            id_ = data.get("data").get("id")
+            if id_ is not None:
+                return id_
+
+    def get_response_data(self, data: dict, **kwargs) -> dict:
+        pass

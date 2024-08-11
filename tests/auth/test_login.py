@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 import unittest
 
-from eAuth import create_app, verify_token, LoginLog
+from eAuth import create_app, verify_token, SecurityLog
 from eAuth.extensions import db, limiter
 from eAuth.auth.models import User
 
@@ -173,9 +173,10 @@ class TestLogin(unittest.TestCase):
             "login_incorrect": self.app.config.get("SHORT_MAX_LOGIN_INCORRECT")
         }
         self.set_user(**user)
-        login_log = LoginLog(username=user['username'], ip_addr='127.0.0.1', operate='登录', success=False,
-                             operator_datetime=datetime.utcnow() - timedelta(hours=self.app.config.get("SHORT_MAX_LOGIN_DELAY")))
-        db.session.add(login_log)
+        security_log = SecurityLog(username=user['username'], ip_addr='127.0.0.1', operate='登录', success=False,
+                                   operate_datetime=datetime.utcnow() - timedelta(
+                                       hours=self.app.config.get("SHORT_MAX_LOGIN_DELAY")))
+        db.session.add(security_log)
         db.session.commit()
         return user
 

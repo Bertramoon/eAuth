@@ -1,8 +1,8 @@
 import logging
 
-from ..extensions import scheduler, cache
-from ..constant import CACHE_PREFIX_API, CACHE_TIME_AUTH, CACHE_TIME_AUTH_DELAY, CACHE_PREFIX_ROLE_TO_API
 from ..auth.models import Api, Role
+from ..constant import CACHE_PREFIX_API, CACHE_TIME_AUTH, CACHE_TIME_AUTH_DELAY, CACHE_PREFIX_ROLE_TO_API
+from ..extensions import scheduler, cache
 
 logger = logging.getLogger(__name__)
 

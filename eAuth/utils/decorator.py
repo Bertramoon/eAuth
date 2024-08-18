@@ -1,12 +1,12 @@
-from functools import wraps
 import json
 import logging
+from functools import wraps
 from typing import Optional
 
 from flask import g, Response, request
 
-from ..log.models import OperateLog, SecurityLog
 from ..extensions import get_ipaddr, db
+from ..log.models import OperateLog, SecurityLog
 
 logger = logging.getLogger(__name__)
 
@@ -77,9 +77,9 @@ def operate_log(func):
                 success=success
             )
             if request_data:
-                log_record.request_data = json.dumps(request_data)
+                log_record.request_data = json.dumps(request_data, ensure_ascii=False)
             if response_data:
-                log_record.response_data = json.dumps(response_data)
+                log_record.response_data = json.dumps(response_data, ensure_ascii=False)
             db.session.add(log_record)
             db.session.commit()
             if not response_obj.is_json:

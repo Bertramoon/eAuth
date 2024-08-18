@@ -1,20 +1,20 @@
 import logging
 import logging.config
+import random
 
 import click
 import yaml
 from apiflask import APIFlask, abort
+from faker import Faker
 from flask import request, g
 from sqlalchemy import inspect
-from faker import Faker
-import random
 
 from .auth.api import auth_api
 from .auth.models import User, Api, Role
 from .config.api import config_api
-from .log.api import log_api
 from .constant import CACHE_TIME_AUTH
 from .extensions import db, migrate, cors, cache, scheduler, limiter, mail
+from .log.api import log_api
 from .log.models import OperateLog, SecurityLog
 from .schedule.auth import cache_auth
 from .settings import config

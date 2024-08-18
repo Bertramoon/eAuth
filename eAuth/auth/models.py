@@ -7,8 +7,8 @@ from authlib.jose import jwt
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from ..extensions import db, cache
 from ..constant import CACHE_PREFIX_USER_TO_ROLE, CACHE_TIME_USER, CACHE_PREFIX_ROLE_TO_API, CACHE_PREFIX_API
+from ..extensions import db, cache
 
 logger = logging.getLogger(__name__)
 
@@ -68,10 +68,12 @@ class User(db.Model):
     @property
     def auth_token(self):
         header = {"alg": "HS256"}
+        now = int(time.time())
         payload = {
             "uid": self.id,
             "username": self.username,
-            "exp": time.time() + current_app.config.get("TOKEN_EXPIRED", 60 * 60)
+            "iat": now,
+            "exp": now + current_app.config.get("TOKEN_EXPIRED", 60 * 60)
         }
         return jwt.encode(header, payload, current_app.config["SECRET_KEY"]).decode()
 

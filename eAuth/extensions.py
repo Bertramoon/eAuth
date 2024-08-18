@@ -1,11 +1,11 @@
 from flask import request
+from flask_apscheduler import APScheduler
 from flask_caching import Cache
 from flask_cors import CORS
-from flask_migrate import Migrate
-from flask_sqlalchemy import SQLAlchemy
-from flask_apscheduler import APScheduler
 from flask_limiter import Limiter
 from flask_mail import Mail
+from flask_migrate import Migrate
+from flask_sqlalchemy import SQLAlchemy
 
 
 def get_ipaddr():

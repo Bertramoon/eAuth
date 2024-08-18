@@ -9,6 +9,7 @@ from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthO
 from ..base.schemas import BaseOutSchema
 from ..extensions import limiter, db
 from ..log.models import SecurityLog
+from ..utils.auth import logout_user
 from ..utils.decorator import security_log
 
 auth_api = APIBlueprint("auth", __name__, url_prefix="/api/auth")
@@ -92,6 +93,17 @@ def auth(data):
         abort(403, message="No permission")
     logger.info(f"[check] User: `{user.username}`, url: `{url}`, method: `{method}`, check result is {success}")
     return {}
+
+
+@auth_api.post("/logout")
+@auth_api.output(BaseOutSchema)
+@auth_api.doc(summary="用于推出登录",
+              responses=[200, 401, 403, 422],
+              security="Authorization")
+def logout():
+    # 调用到该方法说明认证通过了，因此只需要将该用户uid以及当前时间加入缓存中即可
+    user: User = g.get("user")
+    logout_user(user.id)
 
 
 @auth_api.get("/ping")

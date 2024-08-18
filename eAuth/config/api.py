@@ -13,7 +13,7 @@ from .schemas import ApiPageOutputSchema, RolePageOutputSchema, UserPageOutputSc
 from ..auth.models import Api, Role, User
 from ..base.schemas import BaseOutSchema
 from ..extensions import db
-from ..utils.auth import required_admin, generate_random_password
+from ..utils.auth import required_admin, generate_random_password, logout_user
 from ..utils.decorator import operate_log, security_log
 from ..utils.message import message_util
 from ..utils.model import get_page
@@ -181,7 +181,7 @@ class UserView(MethodView):
             if email:
                 user.email = email
             if locked is not None:
-                if user.username == "admin":
+                if user.username == "admin" and locked is True:
                     abort(422, message="Admin can't be locked")
                 user.locked = locked
             db.session.commit()
@@ -378,6 +378,7 @@ def reset(data):
     user.set_password(password)
     try:
         db.session.commit()
+        logout_user(user.id)
     except:
         db.session.rollback()
         logger.error(f"[user] Reset user `{user.username}`({user.email}) fail.", exc_info=True)
@@ -400,6 +401,7 @@ def change_password(data):
     try:
         user.set_password(new_password)
         db.session.commit()
+        logout_user(user.id)
     except:
         db.session.rollback()
         logger.error(f"[user] User `{user.username}`({user.email}) change password failed.", exc_info=True)

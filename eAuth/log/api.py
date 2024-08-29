@@ -40,7 +40,7 @@ def query_operate_log(operate_log: dict, between: dict, page: dict):
 @log_api.input(PageSchema, location="query", arg_name="page")
 @log_api.output(SecurityLogPageOutputSchema)
 def query_security_log(security_log: dict, between: dict, page: dict):
-    query = SecurityLog.query
+    query = SecurityLog.query.order_by(SecurityLog.operate_datetime.desc())
     start_datetime = between.get("start_datetime")
     end_datetime = between.get("end_datetime")
     if start_datetime:

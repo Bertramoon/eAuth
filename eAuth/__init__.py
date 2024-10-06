@@ -10,8 +10,8 @@ from flask import request, g
 from sqlalchemy import inspect
 
 from .auth.api import auth_api
-from .auth.models import User, Api, Role
-from .config.api import config_api
+from eAuth.models import User, Api, Role
+from .config import config_api_blueprint
 from .constant import CACHE_TIME_AUTH
 from .extensions import db, migrate, cors, cache, scheduler, limiter, mail
 from .log.api import log_api
@@ -58,7 +58,7 @@ def register_extensions(app):
 
 def register_blueprints(app):
     app.register_blueprint(auth_api)
-    app.register_blueprint(config_api)
+    app.register_blueprint(config_api_blueprint)
     app.register_blueprint(log_api)
 
 
@@ -149,25 +149,25 @@ def register_commands(app):
     @app.cli.command()
     def init_role():
         api_reader = [
-            Api(url=config_api.url_prefix + "/api", method="GET"),
-            Api(url=config_api.url_prefix + "/api/{id}", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/api", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/api/{id}", method="GET"),
 
-            Api(url=config_api.url_prefix + "/role", method="GET"),
-            Api(url=config_api.url_prefix + "/role/{id}", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/role", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/role/{id}", method="GET"),
 
-            Api(url=config_api.url_prefix + "/user", method="GET"),
-            Api(url=config_api.url_prefix + "/user/{id}", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/user", method="GET"),
+            Api(url=config_api_blueprint.url_prefix + "/user/{id}", method="GET"),
         ]
 
         api_operator = [
-            Api(url=config_api.url_prefix + "/api", method="POST"),
-            Api(url=config_api.url_prefix + "/api/{id}", method="PUT"),
-            Api(url=config_api.url_prefix + "/api/{id}", method="DELETE"),
+            Api(url=config_api_blueprint.url_prefix + "/api", method="POST"),
+            Api(url=config_api_blueprint.url_prefix + "/api/{id}", method="PUT"),
+            Api(url=config_api_blueprint.url_prefix + "/api/{id}", method="DELETE"),
 
-            Api(url=config_api.url_prefix + "/role", method="POST"),
-            Api(url=config_api.url_prefix + "/role/{id}", method="PUT"),
-            Api(url=config_api.url_prefix + "/role/{id}", method="DELETE"),
-            Api(url=config_api.url_prefix + "/role/{id}/api", method="PUT"),
+            Api(url=config_api_blueprint.url_prefix + "/role", method="POST"),
+            Api(url=config_api_blueprint.url_prefix + "/role/{id}", method="PUT"),
+            Api(url=config_api_blueprint.url_prefix + "/role/{id}", method="DELETE"),
+            Api(url=config_api_blueprint.url_prefix + "/role/{id}/api", method="PUT"),
         ]
 
         role1 = Role(name="reader")

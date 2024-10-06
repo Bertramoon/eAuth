@@ -5,10 +5,10 @@ from marshmallow.fields import String, Integer, Boolean, List, Nested
 from marshmallow.validate import Length, Email
 from sqlalchemy import or_
 
-from eAuth.auth.models import User
 from eAuth.base.schemas import PageSchema, BasePageOutSchema, BaseOutSchema, RequestAuditLog, \
     ResponseGetResourceAuditLog
 from eAuth.extensions import db
+from eAuth.models import User
 
 
 class UserSchema(Schema):

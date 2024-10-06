@@ -4,7 +4,7 @@ import logging
 from apiflask import APIBlueprint, abort
 from flask import current_app, g
 
-from .models import User
+from eAuth.models import User
 from .schemas import LoginInputSchema, LoginOutputSchema, AuthInputSchema, AuthOutputSchema
 from ..base.schemas import BaseOutSchema
 from ..extensions import limiter, db

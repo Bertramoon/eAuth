@@ -7,8 +7,8 @@ from authlib.jose import jwt
 from flask import current_app
 from werkzeug.security import generate_password_hash, check_password_hash
 
-from ..constant import CACHE_PREFIX_USER_TO_ROLE, CACHE_TIME_USER, CACHE_PREFIX_ROLE_TO_API, CACHE_PREFIX_API
-from ..extensions import db, cache
+from eAuth.constant import CACHE_PREFIX_USER_TO_ROLE, CACHE_TIME_USER, CACHE_PREFIX_ROLE_TO_API, CACHE_PREFIX_API
+from eAuth.extensions import db, cache
 
 logger = logging.getLogger(__name__)
 

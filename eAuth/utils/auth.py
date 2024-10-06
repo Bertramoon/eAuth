@@ -7,7 +7,7 @@ from apiflask import abort
 from authlib.jose import jwt, JWTClaims, JoseError
 from flask import current_app, g
 
-from ..auth.models import User
+from eAuth.models import User
 from ..constant import CACHE_PREFIX_LOGOUT, CACHE_TIME_LOGOUT_DELAY
 from ..extensions import cache
 

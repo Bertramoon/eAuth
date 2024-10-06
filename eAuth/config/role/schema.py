@@ -7,10 +7,10 @@ from marshmallow.fields import String, Integer, List, Nested
 from marshmallow.validate import Length
 from sqlalchemy import and_
 
-from eAuth.auth.models import Role
 from eAuth.base.schemas import PageSchema, BasePageOutSchema, BaseOutSchema, RequestAuditLog, \
     RequestWithIdAuditLog, ResponseGetResourceAuditLog
 from eAuth.extensions import db
+from eAuth.models import Role
 
 logger = logging.getLogger(__name__)
 

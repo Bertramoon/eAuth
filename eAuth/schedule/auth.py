@@ -1,6 +1,6 @@
 import logging
 
-from ..auth.models import Api, Role
+from eAuth.models import Api, Role
 from ..constant import CACHE_PREFIX_API, CACHE_TIME_AUTH, CACHE_TIME_AUTH_DELAY, CACHE_PREFIX_ROLE_TO_API
 from ..extensions import scheduler, cache
 

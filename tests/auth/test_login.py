@@ -3,7 +3,7 @@ import unittest
 
 from eAuth import create_app, verify_token, SecurityLog
 from eAuth.extensions import db, limiter
-from eAuth.auth.models import User
+from eAuth.models import User
 
 
 class TestLogin(unittest.TestCase):

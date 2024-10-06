@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 class RoleQuerySchema(PageSchema):
-    name = String(validate=[Length(min=0, max=30)])
+    search = String(validate=[Length(max=512)])
 
 
 class RoleSchema(Schema):

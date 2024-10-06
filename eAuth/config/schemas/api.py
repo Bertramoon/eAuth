@@ -16,7 +16,8 @@ logger = logging.getLogger(__name__)
 
 
 class ApiQuerySchema(PageSchema):
-    url = String(validate=[Length(min=0, max=256), Regexp(regex=r'^[/a-zA-Z0-9\\u4e00-\\u9fff\_\-\.~\{\}]*$')])
+    search = String(validate=[Length(max=512)])
+    method = String(required=False, validate=[OneOf(("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"))])
 
 
 class ApiSchema(Schema):

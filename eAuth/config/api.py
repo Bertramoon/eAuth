@@ -30,8 +30,12 @@ class ApiView(MethodView):
                     security="Authorization")
     def get(self, api_id: int, query: dict):
         model = Api.query
-        if query.get("url"):
-            model = model.filter(Api.url.like(f"%{query.get('url')}%"))
+        search = query.get("search")
+        if search:
+            model = model.filter((Api.url.like(f"%{search}%")) | (Api.description.like(f"%{search}%")))
+        method: str = query.get("method")
+        if method:
+            model = model.filter(Api.method == method)
         return get_page(model, {"id": api_id}, query["page"], query["per_page"])
 
     @operate_log
@@ -94,8 +98,9 @@ class RoleView(MethodView):
                     security="Authorization")
     def get(self, role_id: int, query: dict):
         model = Role.query
-        if query.get("name"):
-            model = model.filter(Role.name.like(f"%{query.get('name')}%"))
+        search = query.get("search")
+        if search:
+            model = model.filter((Role.name.like(f"%{search}%")) | (Role.description.like(f"%{search}%")))
         return get_page(model, {"id": role_id}, query["page"], query["per_page"])
 
     @operate_log
@@ -221,8 +226,12 @@ config_api.add_url_rule("/user/<int:uid>", view_func=user_view, methods=["GET", 
 def get_role_unbind_api(role_id: int, query: dict):
     role: Role = Role.query.get_or_404(role_id)
     model = Api.query.filter(~Api.id.in_(item.id for item in role.apis))
-    if query.get("url"):
-        model = model.filter(Api.url.like(f"%{query.get('url')}%"))
+    search = query.get("search")
+    if search:
+        model = model.filter((Api.url.like(f"%{search}%")) | (Api.description.like(f"%{search}%")))
+    method: str = query.get("method")
+    if method:
+        model = model.filter(Api.method == method)
     result = get_page(model, {}, query["page"], query["per_page"], role_id=role_id)
     return result
 

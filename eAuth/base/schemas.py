@@ -18,7 +18,7 @@ class BasePageOutSchema(BaseOutSchema):
 class PageSchema(Schema):
     page = Integer(load_default=1, validate=Range(min=1))  # 设置默认页面为 1
     # 将默认值设置为 20，并确保该值不超过 100
-    per_page = Integer(load_default=20, validate=Range(min=1, max=100))
+    per_page = Integer(load_default=20, validate=Range(min=1, max=200))
 
 
 class DatetimeSchema(Schema):

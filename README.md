@@ -1,36 +1,101 @@
-# 构建与初始化
+# eAuth
 
-## 安装依赖包
+基于RBAC的身份认证与访问控制系统【后端部分】—— 基于python3的flask框架(使用apiflask插件)
+
+后端部分链接: [https://github.com/Bertramoon/eAuth-front](https://github.com/Bertramoon/eAuth-front )
+
+## 基本项目结构
+
+列举重要的文件并对有必要的部分加以说明
+
+/EAUTH/EAUTH
+|   constant.py
+|   extensions.py
+|   log_config.yaml
+|   settings.py【存储系统的重要配置，部分配置从环境变量中读取】
+|   __init__.py
+|
++---auth【认证模块】
+|   |   api.py【接口】
+|   |   models.py【数据库模型定义】
+|   |   schemas.py【输入输出模型定义】
+|
++---base
+|   |   schemas.py
+|   |   validators.py
+|   |   __init__.py
+|
++---config【配置模块】
+|   |   api.py
+|   |   __init__.py
+|   |
+|   +---schemas
+|   |   |   api.py
+|   |   |   role.py
+|   |   |   user.py
+|   |   |   __init__.py
+|
++---log
+|   |   api.py
+|   |   models.py
+|   |   schemas.py
+|   |   __init__.py
+|
++---schedule
+|   |   auth.py
+|   |   __init__.py
+|
++---templates
+|   \---emails
+|           register.html
+|           register.txt
+|           reset.html
+|           reset.txt
+|
++---utils
+|   |   auth.py
+|   |   decorator.py
+|   |   email.py
+|   |   message.py
+|   |   model.py
+|   |   tool.py
+|   |   __init__.py
+
+
+## 构建与初始化
+
+### 安装依赖包
 
 ```shell
 pip install -r requirements.txt
 ```
 
-## 创建数据库和数据表
+### 创建数据库和数据表
 
 ```shell
 flask initdb --drop
 ```
 
-# 设计与实现
 
-## 功能设计
+## 设计与实现
 
-## 数据设计
+### 功能设计
 
-## 质量设计
+### 数据设计
 
-### 性能
+### 质量设计
 
-#### 缓存设计
+#### 性能
+
+##### 缓存设计
 
 核心鉴权接口使用内存缓存，其他地方不用缓存
 
-### 安全
+#### 安全
 
-#### 机密性
+##### 机密性
 
-##### 用户管理
+###### 用户管理
 
 1、创建用户
 - 用户名校验
@@ -49,14 +114,14 @@ flask initdb --drop
 4、禁用用户
 - 安全设计（令账号和会话失效）
 
-##### 身份认证与访问控制
+###### 身份认证与访问控制
 - 身份认证算法
 
-#### 完整性
+##### 完整性
 
-#### 不可抵赖性
+##### 不可抵赖性
 
-##### 审计日志
+###### 审计日志
 
 eAuth的审计日志主要有操作日志和登录日志。
 
@@ -89,7 +154,7 @@ PS:
 - 操作时间
 
 
-#### 可用性
+##### 可用性
 
 - 接口限流
 - 数据分页
